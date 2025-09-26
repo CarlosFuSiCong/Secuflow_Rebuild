@@ -5,6 +5,15 @@ const nextConfig: NextConfig = {
   experimental: {
     outputFileTracingRoot: undefined,
   },
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/sign-in',
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

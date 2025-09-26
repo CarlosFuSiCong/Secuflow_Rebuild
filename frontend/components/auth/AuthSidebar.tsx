@@ -13,8 +13,8 @@ export function AuthSidebar({ className, theme = "inverse" }: AuthSidebarProps) 
     theme === "inverse"
       ? "bg-background text-foreground dark:bg-foreground dark:text-background"
       : theme === "dark"
-      ? "bg-foreground text-background"
-      : "bg-background text-foreground";
+        ? "bg-foreground text-background"
+        : "bg-background text-foreground";
 
   return (
     <div className={cn("hidden min-h-full w-[40%] flex-col-reverse p-12 md:flex", themeClasses, className)}>
@@ -25,14 +25,14 @@ export function AuthSidebar({ className, theme = "inverse" }: AuthSidebarProps) 
             <AvatarFallback>ST</AvatarFallback>
           </Avatar>
           <p className="mb-6 text-lg opacity-90">
-            "Shadcn UI Kit for Figma has completely transformed our design process. It's
-            incredibly intuitive and saves us so much time. The components are beautifully
-            crafted and customizable."
+            "Secuflow has revolutionized our security workflow. The automated vulnerability
+            scanning and comprehensive reporting give us confidence in our code quality.
+            It's an essential tool for any development team serious about security."
           </p>
         </div>
         <div>
-          <p className="font-semibold">Sarah Thompson</p>
-          <p className="opacity-80">Lead UX Designer at BrightWave Solutions</p>
+          <p className="font-semibold">Sicong Fu</p>
+          <p className="opacity-80">Security Engineer at TechCorp</p>
         </div>
       </div>
     </div>
