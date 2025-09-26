@@ -102,8 +102,8 @@ function Navbar1() {
         <Link href="#" className={linkClasses}>
           Analytics
         </Link>
-        <Link href="#" className={linkClasses}>
-          Settings
+        <Link href="/profile" className={linkClasses}>
+          Profile
         </Link>
       </>
     );
@@ -133,7 +133,7 @@ function Navbar1() {
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>My Profile</DropdownMenuItem>
+                <Link href="/profile"><DropdownMenuItem>My Profile</DropdownMenuItem></Link>
                 <DropdownMenuItem>Account</DropdownMenuItem>
                 <DropdownMenuItem>Billing</DropdownMenuItem>
                 <Separator className="my-1" />
@@ -178,7 +178,7 @@ function Navbar1() {
               </div>
               <div>
                 <Link
-                  href="#"
+                  href="/profile"
                   className="text-muted-foreground block rounded-md px-2 py-2 font-medium"
                 >
                   My profile
@@ -218,8 +218,8 @@ function PageHeader3() {
       <nav className="border-border mb-6 border-b">
         <div className="container mx-auto flex overflow-x-auto px-2 lg:px-3.5">
           <Link
-            href="#"
-            className="text-foreground flex-shrink-0 py-1.5 text-sm"
+            href="/profile"
+            className="text-muted-foreground flex-shrink-0 py-1.5 text-sm"
           >
             <span className="hover:bg-muted block rounded-md px-2.5 py-2">
               Profile
@@ -230,7 +230,7 @@ function PageHeader3() {
             className="text-muted-foreground flex-shrink-0 py-1.5 text-sm"
           >
             <span className="hover:bg-muted block rounded-md px-2.5 py-2">
-              Account
+              Dashboard
             </span>
           </Link>
           <Link
@@ -254,7 +254,7 @@ function PageHeader3() {
             className="text-muted-foreground flex-shrink-0 py-1.5 text-sm"
           >
             <span className="hover:bg-muted block rounded-md px-2.5 py-2">
-              Members
+              Settings
             </span>
           </Link>
         </div>

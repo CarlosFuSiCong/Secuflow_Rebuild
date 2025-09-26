@@ -23,7 +23,7 @@ export function useSignInForm() {
     setFormError(null);
     try {
       await login(values.email, values.password);
-      router.push("/");
+      router.push("/projects");
     } catch (err: any) {
       const status = err?.response?.status;
       const msg =
@@ -54,7 +54,7 @@ export function useSignUpForm() {
     setFormError(null);
     try {
       await registerApi(values.email, values.password);
-      router.push("/");
+      router.push("/projects");
     } catch (err: any) {
       const msg = err?.response?.data?.detail || err?.response?.data?.message || err?.message || "Sign up failed";
       setFormError(msg);

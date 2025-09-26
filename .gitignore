@@ -93,3 +93,4 @@ backend/tnm-cli.jar
 # Misc
 *.swp
 *.swo
+.claude/settings.local.json
