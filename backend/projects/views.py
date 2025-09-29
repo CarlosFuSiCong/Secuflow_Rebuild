@@ -6,6 +6,15 @@ and their members in the Secuflow system.
 
 API Endpoints:
 - GET    /api/projects/projects/           - List all projects
+  Query Parameters:
+  - q: Search query (name, repo_url, description)
+  - repo_type: Filter by repository type (github/gitlab/bitbucket/other)
+  - role: Filter by user role (owner/member)
+  - sort: Sort field (-created_at/name/repo_type)
+  - include_deleted: Include soft-deleted projects (true/false)
+  - page: Page number
+  - page_size: Items per page
+
 - POST   /api/projects/projects/           - Create new project
 - GET    /api/projects/projects/{id}/      - Get project details
 - PUT    /api/projects/projects/{id}/      - Update project
@@ -92,9 +101,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
         
         if not user_profile:
             return Project.objects.none()
+            
+        # Get query parameters
+        query = self.request.query_params.get('q')
+        repo_type = self.request.query_params.get('repo_type')
+        role = self.request.query_params.get('role')
+        sort_by = self.request.query_params.get('sort', '-created_at')
+        include_deleted = self.request.query_params.get('include_deleted', '').lower() == 'true'
         
-        # Use service layer to get user's projects
-        return ProjectService.get_user_projects(user_profile)
+        # Validate sort field
+        valid_sort_fields = ['created_at', '-created_at', 'name', '-name', 'repo_type', '-repo_type']
+        if sort_by not in valid_sort_fields:
+            sort_by = '-created_at'
+        
+        # Use service layer with enhanced search
+        return ProjectService.search_projects(
+            user_profile=user_profile,
+            query=query,
+            repo_type=repo_type,
+            role=role,
+            sort_by=sort_by,
+            include_deleted=include_deleted
+        )['projects']  # Extract projects from result
     
     def create(self, request, *args, **kwargs):
         """Create a new project using service layer."""

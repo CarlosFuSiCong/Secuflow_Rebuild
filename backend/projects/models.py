@@ -5,8 +5,26 @@ This module provides models for Project and ProjectMember.
 """
 
 import uuid
+import re
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
+from django.utils import timezone
+
+
+class ProjectRole(models.TextChoices):
+    """Project role choices."""
+    OWNER = 'owner', 'Owner'
+    MAINTAINER = 'maintainer', 'Maintainer'
+    REVIEWER = 'reviewer', 'Reviewer'
+
+
+class RepositoryType(models.TextChoices):
+    """Repository type choices."""
+    GITHUB = 'github', 'GitHub'
+    GITLAB = 'gitlab', 'GitLab'
+    BITBUCKET = 'bitbucket', 'Bitbucket'
+    OTHER = 'other', 'Other'
 
 
 class Project(models.Model):
@@ -16,76 +34,151 @@ class Project(models.Model):
     Fields:
     - id: UUID primary key
     - name: Project name (max 200 chars, indexed)
-    - repo_url: Repository URL (unique)
+    - description: Project description (optional)
+    - repo_url: Repository URL (unique, validated)
+    - repo_type: Repository type (github/gitlab/bitbucket/other)
     - default_branch: Default branch name
     - owner_profile: Foreign key to UserProfile (project owner)
     - created_at: Creation timestamp
     - updated_at: Last update timestamp
+    - deleted_at: Soft deletion timestamp
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=200, db_index=True)
-    repo_url = models.URLField(max_length=255, unique=True)
-    default_branch = models.CharField(max_length=100, blank=True, null=True)
+    description = models.TextField(blank=True, null=True, help_text="Project description")
+    repo_url = models.URLField(
+        max_length=255, 
+        unique=True,
+        validators=[URLValidator(schemes=['http', 'https', 'git', 'ssh'])]
+    )
+    repo_type = models.CharField(
+        max_length=20,
+        choices=RepositoryType.choices,
+        default=RepositoryType.GITHUB,
+        help_text="Repository type"
+    )
+    default_branch = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True,
+        help_text="Default branch name"
+    )
     owner_profile = models.ForeignKey(
-        "accounts.UserProfile", on_delete=models.PROTECT, related_name="owned_projects"
+        "accounts.UserProfile", 
+        on_delete=models.PROTECT, 
+        related_name="owned_projects"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    
+    # Risk assessment fields
+    last_risk_check_at = models.DateTimeField(
+        null=True, 
+        blank=True,
+        help_text="Last risk assessment timestamp"
+    )
+    stc_risk_score = models.FloatField(
+        default=0.0,
+        help_text="STC risk score (0-1, higher means more risky)"
+    )
+    mcstc_risk_score = models.FloatField(
+        default=0.0,
+        help_text="MC-STC risk score (0-1, higher means more risky)"
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['repo_type']),
+            models.Index(fields=['deleted_at']),
+            models.Index(fields=['stc_risk_score']),
+            models.Index(fields=['mcstc_risk_score']),
+            models.Index(fields=['last_risk_check_at']),
+            # Composite indexes for common queries
+            models.Index(fields=['owner_profile', 'deleted_at']),
+            models.Index(fields=['repo_type', 'deleted_at']),
+        ]
+        ordering = ['-created_at']
 
     def __str__(self) -> str:
         return f"Project({self.name})"
-
-
-class ProjectRole:
-    """Project role definitions with IDs and names."""
     
-    # Role definitions with ID, value, and display name
-    ROLES = {
-        1: {"value": "owner", "name": "Owner", "description": "Full control over the project"},
-        2: {"value": "maintainer", "name": "Maintainer", "description": "Can manage project settings and members"},
-        3: {"value": "reviewer", "name": "Reviewer", "description": "Can review code and manage issues"}
-    }
+    def soft_delete(self):
+        """Soft delete the project by setting deleted_at timestamp."""
+        self.deleted_at = timezone.now()
+        self.save()
     
-    @classmethod
-    def get_role_by_id(cls, role_id):
-        """Get role information by ID."""
-        return cls.ROLES.get(role_id)
+    def restore(self):
+        """Restore a soft-deleted project."""
+        self.deleted_at = None
+        self.save()
     
-    @classmethod
-    def get_role_by_value(cls, value):
-        """Get role information by value."""
-        for role_id, role_info in cls.ROLES.items():
-            if role_info["value"] == value:
-                return {"id": role_id, **role_info}
-        return None
+    def save(self, *args, **kwargs):
+        """Save the project instance."""
+        super().save(*args, **kwargs)
     
-    @classmethod
-    def get_all_roles(cls):
-        """Get all available roles."""
-        return {role_id: {"id": role_id, **role_info} for role_id, role_info in cls.ROLES.items()}
+    @property
+    def is_deleted(self):
+        """Check if the project is soft-deleted."""
+        return self.deleted_at is not None
     
-    @classmethod
-    def is_valid_role_id(cls, role_id):
-        """Check if role ID is valid."""
-        return role_id in cls.ROLES
+    def needs_risk_assessment(self, max_age_days: int = 7) -> bool:
+        """
+        Check if the project needs a new risk assessment.
+        
+        A project needs risk assessment if:
+        1. Never been assessed before
+        2. Has updates after last assessment
+        3. Last assessment is older than max_age_days
+        
+        Args:
+            max_age_days: Maximum age of risk assessment in days
+        
+        Returns:
+            bool: True if needs new assessment, False otherwise
+        """
+        if not self.last_risk_check_at:
+            return True
+            
+        # Check for updates
+        if self.updated_at and self.updated_at > self.last_risk_check_at:
+            return True
+            
+        # Check if assessment is expired
+        age = timezone.now() - self.last_risk_check_at
+        return age.days >= max_age_days
     
-    @classmethod
-    def is_valid_role_value(cls, value):
-        """Check if role value is valid."""
-        return any(role_info["value"] == value for role_info in cls.ROLES.values())
+    def update_risk_scores(self, stc_score: float, mcstc_score: float):
+        """
+        Update project risk scores for both STC and MC-STC methods.
+        
+        Args:
+            stc_score: STC risk score between 0 and 1 (higher means more risky)
+            mcstc_score: MC-STC risk score between 0 and 1 (higher means more risky)
+        """
+        if not 0 <= stc_score <= 1:
+            raise ValueError("STC risk score must be between 0 and 1")
+        if not 0 <= mcstc_score <= 1:
+            raise ValueError("MC-STC risk score must be between 0 and 1")
+            
+        self.stc_risk_score = stc_score
+        self.mcstc_risk_score = mcstc_score
+        self.last_risk_check_at = timezone.now()
+        self.save()
 
 
 class ProjectMember(models.Model):
     """Membership of a profile in a project with a specific role."""
-    class Role(models.TextChoices):
-        OWNER = "owner", "Owner"
-        MAINTAINER = "maintainer", "Maintainer"
-        REVIEWER = "reviewer", "Reviewer"
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="members")
     profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE, related_name="project_memberships")
-    role = models.CharField(max_length=20, choices=Role.choices, default=Role.REVIEWER)
+    role = models.CharField(
+        max_length=20,
+        choices=ProjectRole.choices,
+        default=ProjectRole.REVIEWER,
+        help_text="Member role in the project"
+    )
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

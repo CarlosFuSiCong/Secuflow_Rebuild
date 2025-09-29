@@ -19,48 +19,60 @@ class ProjectService:
     """Service class for all project-related operations."""
     
     @staticmethod
-    def get_user_projects(user_profile):
+    def get_user_projects(user_profile, include_deleted=False):
         """
         Get projects where user is owner or member.
         
         Args:
             user_profile: UserProfile instance
+            include_deleted: Whether to include soft-deleted projects
             
         Returns:
             QuerySet of projects
         """
-        return Project.objects.filter(
-            Q(owner_profile=user_profile) | 
-            Q(members__profile=user_profile)
-        ).distinct().order_by('-created_at')
+        query = Q(owner_profile=user_profile) | Q(members__profile=user_profile)
+        if not include_deleted:
+            query &= Q(deleted_at__isnull=True)
+            
+        return Project.objects.filter(query).distinct().order_by('-created_at')
     
     @staticmethod
-    def get_owned_projects(user_profile):
+    def get_owned_projects(user_profile, include_deleted=False):
         """
         Get projects owned by user.
         
         Args:
             user_profile: UserProfile instance
+            include_deleted: Whether to include soft-deleted projects
             
         Returns:
             QuerySet of owned projects
         """
-        return Project.objects.filter(owner_profile=user_profile).order_by('-created_at')
+        query = Q(owner_profile=user_profile)
+        if not include_deleted:
+            query &= Q(deleted_at__isnull=True)
+            
+        return Project.objects.filter(query).order_by('-created_at')
     
     @staticmethod
-    def get_joined_projects(user_profile):
+    def get_joined_projects(user_profile, include_deleted=False):
         """
         Get projects where user is a member (but not owner).
         
         Args:
             user_profile: UserProfile instance
+            include_deleted: Whether to include soft-deleted projects
             
         Returns:
             QuerySet of joined projects
         """
-        return Project.objects.filter(
-            members__profile=user_profile
-        ).exclude(owner_profile=user_profile).distinct().order_by('-created_at')
+        query = Q(members__profile=user_profile)
+        if not include_deleted:
+            query &= Q(deleted_at__isnull=True)
+            
+        return Project.objects.filter(query).exclude(
+            owner_profile=user_profile
+        ).distinct().order_by('-created_at')
     
     @staticmethod
     def check_project_access(project, user_profile):
@@ -516,19 +528,20 @@ class ProjectService:
             raise ValidationError(f"Failed to update member role: {str(e)}")
     
     @staticmethod
-    def get_project_stats(user_profile):
+    def get_project_stats(user_profile, include_deleted=False):
         """
         Get project statistics for a user.
         
         Args:
             user_profile: UserProfile instance
+            include_deleted: Whether to include soft-deleted projects
             
         Returns:
             Dictionary with statistics
         """
         try:
             # Get user's projects (owned and joined)
-            user_projects = ProjectService.get_user_projects(user_profile)
+            user_projects = ProjectService.get_user_projects(user_profile, include_deleted)
             
             # Calculate statistics
             total_projects = user_projects.count()
@@ -558,35 +571,76 @@ class ProjectService:
             raise ValidationError(f"Failed to get project statistics: {str(e)}")
     
     @staticmethod
-    def search_projects(query, user_profile):
+    def search_projects(
+        user_profile,
+        query=None,
+        repo_type=None,
+        role=None,
+        sort_by='-created_at',
+        page=1,
+        page_size=10,
+        include_deleted=False
+    ):
         """
-        Search projects by name or repository URL.
+        Search and filter projects with pagination.
         
         Args:
-            query: Search query string
             user_profile: UserProfile instance
+            query: Optional search query string
+            repo_type: Optional repository type filter
+            role: Optional role filter ('owner' or 'member')
+            sort_by: Sort field with direction (e.g., '-created_at', 'name')
+            page: Page number (1-based)
+            page_size: Number of items per page
+            include_deleted: Whether to include soft-deleted projects
             
         Returns:
-            Dictionary with search results
+            Dictionary with paginated search results
         """
-        if not query or len(query.strip()) < 2:
-            raise ValidationError("Search query must be at least 2 characters long")
-        
         try:
-            # Get user's accessible projects
-            user_projects = ProjectService.get_user_projects(user_profile)
+            # Start with base query
+            if role == 'owner':
+                projects = ProjectService.get_owned_projects(user_profile, include_deleted)
+            elif role == 'member':
+                projects = ProjectService.get_joined_projects(user_profile, include_deleted)
+            else:
+                projects = ProjectService.get_user_projects(user_profile, include_deleted)
             
-            # Apply search filter
-            search_query = Q(
-                Q(name__icontains=query) |
-                Q(repo_url__icontains=query)
-            )
+            # Apply search filter if provided
+            if query and len(query.strip()) >= 2:
+                search_query = Q(
+                    Q(name__icontains=query) |
+                    Q(repo_url__icontains=query) |
+                    Q(description__icontains=query)
+                )
+                projects = projects.filter(search_query)
             
-            results = user_projects.filter(search_query)
+            # Apply repository type filter if provided
+            if repo_type:
+                projects = projects.filter(repo_type=repo_type)
+            
+            # Apply sorting
+            if sort_by:
+                projects = projects.order_by(sort_by)
+            
+            # Calculate pagination
+            total_count = projects.count()
+            total_pages = (total_count + page_size - 1) // page_size
+            
+            # Ensure page number is valid
+            page = max(1, min(page, total_pages))
+            
+            # Apply pagination
+            start = (page - 1) * page_size
+            end = start + page_size
+            projects = projects[start:end]
             
             return {
-                'projects': results,
-                'count': results.count(),
+                'projects': projects,
+                'count': total_count,
+                'page': page,
+                'page_size': page_size,
+                'total_pages': total_pages,
                 'success': True
             }
             
@@ -594,24 +648,30 @@ class ProjectService:
             raise ValidationError(f"Failed to search projects: {str(e)}")
     
     @staticmethod
-    def get_project_by_id(project_id, user_profile):
+    def get_project_by_id(project_id, user_profile, include_deleted=False):
         """
         Get project by ID with access check.
         
         Args:
             project_id: Project ID
             user_profile: UserProfile instance
+            include_deleted: Whether to include soft-deleted projects
             
         Returns:
             Project instance
         """
         try:
-            project = Project.objects.get(id=project_id)
+            query = Q(id=project_id)
+            if not include_deleted:
+                query &= Q(deleted_at__isnull=True)
+                
+            project = Project.objects.get(query)
             
             if not ProjectService.check_project_access(project, user_profile):
                 raise ValidationError("You do not have permission to access this project")
             
-            return project
+            if project.deleted_at and not include_deleted:
+                raise ValidationError("This project has been deleted")
             
         except Project.DoesNotExist:
             raise ValidationError("Project not found")

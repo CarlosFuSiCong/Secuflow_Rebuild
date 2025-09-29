@@ -27,17 +27,44 @@ from accounts.models import UserProfile
 
 
 class ProjectCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating new projects (without default_branch)."""
+    """Serializer for creating new projects."""
+    
+    available_branches = serializers.ListField(
+        child=serializers.CharField(),
+        read_only=True,
+        help_text="List of available branches from the repository"
+    )
     
     class Meta:
         model = Project
-        fields = ['name', 'repo_url']
+        fields = ['name', 'repo_url', 'available_branches']
     
     def validate_repo_url(self, value):
         """Validate repository URL format."""
         if not value.startswith(('http://', 'https://', 'git@')):
             raise serializers.ValidationError("Repository URL must be a valid HTTP/HTTPS URL or Git SSH URL.")
         return value
+        
+    def to_representation(self, instance):
+        """Add available branches to the response."""
+        from .services import ProjectService
+        data = super().to_representation(instance)
+        
+        # Get available branches from the repository
+        try:
+            branches = ProjectService.get_repository_branches(instance.repo_url)
+            data['available_branches'] = branches
+            
+            # Suggest default branch based on common conventions
+            if 'main' in branches:
+                data['suggested_default_branch'] = 'main'
+            elif 'master' in branches:
+                data['suggested_default_branch'] = 'master'
+        except Exception as e:
+            data['available_branches'] = []
+            data['error'] = str(e)
+            
+        return data
 
 
 class ProjectSerializer(serializers.ModelSerializer):
@@ -47,14 +74,20 @@ class ProjectSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source='owner_profile.user.username', read_only=True)
     owner_email = serializers.EmailField(source='owner_profile.user.email', read_only=True)
     members_count = serializers.SerializerMethodField()
+    is_deleted = serializers.BooleanField(read_only=True)
+    
     class Meta:
         model = Project
         fields = [
-            'id', 'name', 'repo_url', 'default_branch', 
+            'id', 'name', 'description', 'repo_url', 'repo_type', 'default_branch',
             'owner_profile', 'owner_id', 'owner_username', 'owner_email',
-            'members_count', 'created_at', 'updated_at'
+            'members_count', 'created_at', 'updated_at', 'is_deleted',
+            'stc_risk_score', 'mcstc_risk_score', 'last_risk_check_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id', 'created_at', 'updated_at', 'is_deleted',
+            'stc_risk_score', 'mcstc_risk_score', 'last_risk_check_at'
+        ]
     
     def get_members_count(self, obj):
         """Get the number of members in the project."""
@@ -81,11 +114,15 @@ class ProjectListSerializer(serializers.ModelSerializer):
     owner_id = serializers.UUIDField(source='owner_profile.user.id', read_only=True)
     owner_username = serializers.CharField(source='owner_profile.user.username', read_only=True)
     members_count = serializers.SerializerMethodField()
+    is_deleted = serializers.BooleanField(read_only=True)
+    
     class Meta:
         model = Project
         fields = [
-            'id', 'name', 'repo_url', 'default_branch',
-            'owner_id', 'owner_username', 'members_count', 'created_at'
+            'id', 'name', 'description', 'repo_url', 'repo_type',
+            'owner_id', 'owner_username', 'members_count',
+            'stc_risk_score', 'mcstc_risk_score',
+            'is_deleted', 'created_at'
         ]
     
     def get_members_count(self, obj):
