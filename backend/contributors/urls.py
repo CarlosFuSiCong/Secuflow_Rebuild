@@ -4,7 +4,7 @@ from . import views
 
 # Create router and register viewsets
 router = DefaultRouter()
-router.register(r'contributors', views.ContributorViewSet)
+# Removed contributors list endpoint per requirement
 router.register(r'project-contributors', views.ProjectContributorViewSet)
 router.register(r'code-files', views.CodeFileViewSet)
 router.register(r'commits', views.CommitViewSet)
