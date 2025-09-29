@@ -6,7 +6,6 @@ from . import views
 router = DefaultRouter()
 # Removed contributors list endpoint per requirement
 router.register(r'project-contributors', views.ProjectContributorViewSet)
-router.register(r'code-files', views.CodeFileViewSet)
 
 # URL patterns
 urlpatterns = [

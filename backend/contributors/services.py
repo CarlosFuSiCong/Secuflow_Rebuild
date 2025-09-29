@@ -94,6 +94,9 @@ class TNMDataAnalysisService:
                         contributor=contributor,
                         defaults={
                             'tnm_user_id': user_id,
+                            # TNM AssignmentMatrix does not contain true commit counts.
+                            # Use total_modifications as a proxy for commits_count for now.
+                            'commits_count': user_stats['total_modifications'],
                             'files_modified': user_stats['files_count'],
                             'total_modifications': user_stats['total_modifications'],
                             'avg_modifications_per_file': user_stats['avg_modifications_per_file'],

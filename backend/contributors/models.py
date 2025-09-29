@@ -84,38 +84,4 @@ class ProjectContributor(models.Model):
             self.avg_modifications_per_file
         )
 
-class CodeFile(models.Model):
-    """A single source file within a project, with optional metadata."""
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="code_files")
-    # Keep unique index within MySQL index limits (utf8mb4 -> 255 chars safe under 3072 bytes)
-    path = models.CharField(max_length=255)
-    language = models.CharField(max_length=40, blank=True, null=True)
-    loc = models.IntegerField(blank=True, null=True)
-    last_modified_at = models.DateTimeField(blank=True, null=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["project", "path"], name="uq_codefile_project_path"),
-        ]
-        indexes = [models.Index(fields=["project", "language"], name="idx_codefile_proj_lang")]
-
-    def __str__(self) -> str:
-        return f"{self.path} (project_id={self.project_id})"
-
-class Commit(models.Model):
-    """A commit in a project's VCS history."""
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="commits")
-    sha = models.CharField(max_length=64)
-    author_contributor = models.ForeignKey(
-        Contributor, on_delete=models.SET_NULL, null=True, blank=True, related_name="authored_commits"
-    )
-    authored_at = models.DateTimeField(blank=True, null=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["project", "sha"], name="uq_commit_sha"),
-        ]
-        indexes = [models.Index(fields=["project", "authored_at"], name="idx_commit_project_time")]
-
-    def __str__(self) -> str:
-        return f"Commit({self.sha[:12]})"
+ 

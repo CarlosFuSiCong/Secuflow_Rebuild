@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Q, Count, Avg, Sum
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from .models import Contributor, ProjectContributor, CodeFile, Commit
+from .models import Contributor, ProjectContributor
 from projects.models import Project
 from .enums import FunctionalRole
 from .services import TNMDataAnalysisService
@@ -49,25 +49,9 @@ class ProjectContributorSerializer(serializers.ModelSerializer):
                  'project_name', 'commits_count', 'last_active_at']
         read_only_fields = ['id', 'contributor_login', 'contributor_email', 'project_name']
 
-class CodeFileSerializer(serializers.ModelSerializer):
-    """Serializer for CodeFile model"""
-    project_name = serializers.CharField(source='project.name', read_only=True)
-    
-    class Meta:
-        model = CodeFile
-        fields = ['id', 'project', 'project_name', 'path', 'language', 'loc', 'last_modified_at']
-        read_only_fields = ['id', 'project_name']
+ 
 
-class CommitSerializer(serializers.ModelSerializer):
-    """Serializer for Commit model"""
-    project_name = serializers.CharField(source='project.name', read_only=True)
-    author_login = serializers.CharField(source='author_contributor.github_login', read_only=True)
-    
-    class Meta:
-        model = Commit
-        fields = ['id', 'project', 'project_name', 'sha', 'author_contributor', 
-                 'author_login', 'authored_at']
-        read_only_fields = ['id', 'project_name', 'author_login']
+ 
 
 # ViewSets
 class ContributorViewSet(viewsets.ModelViewSet):
@@ -266,127 +250,12 @@ class ProjectContributorViewSet(viewsets.ModelViewSet):
         
         return queryset.order_by('-commits_count', '-last_active_at')
 
-class CodeFileViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing code files within projects.
-    Provides file metadata and statistics.
-    """
-    queryset = CodeFile.objects.select_related('project').all()
-    serializer_class = CodeFileSerializer
-    permission_classes = [IsAuthenticated]
-    pagination_class = DefaultPagination
-    
-    def get_queryset(self):
-        """Filter queryset based on project and language parameters"""
-        queryset = CodeFile.objects.select_related('project')
-        
-        # Filter by project
-        project_id = self.request.query_params.get('project_id', '')
-        if project_id:
-            queryset = queryset.filter(project_id=project_id)
-        
-        # Filter by language
-        language = self.request.query_params.get('language', '')
-        if language:
-            queryset = queryset.filter(language__icontains=language)
-        
-        # Search by file path
-        search = self.request.query_params.get('search', '')
-        if search:
-            queryset = queryset.filter(path__icontains=search)
-        
-        return queryset.order_by('project_id', 'path')
+ 
 
-class CommitViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing commits within projects.
-    Provides commit history and author information.
-    """
-    queryset = Commit.objects.select_related('project', 'author_contributor').all()
-    serializer_class = CommitSerializer
-    permission_classes = [IsAuthenticated]
-    pagination_class = DefaultPagination
-    
-    def get_queryset(self):
-        """Filter queryset based on project and contributor parameters"""
-        queryset = Commit.objects.select_related('project', 'author_contributor')
-        
-        # Filter by project
-        project_id = self.request.query_params.get('project_id', '')
-        if project_id:
-            queryset = queryset.filter(project_id=project_id)
-        
-        # Filter by contributor
-        contributor_id = self.request.query_params.get('contributor_id', '')
-        if contributor_id:
-            queryset = queryset.filter(author_contributor_id=contributor_id)
-        
-        return queryset.order_by('-authored_at')
+ 
 
 # Statistics endpoints
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def contributor_stats(request):
-    """
-    Get comprehensive contributor statistics.
-    Returns aggregated data about contributors, projects, and activity.
-    """
-    user_id = request.user.id if request.user else None
-    logger.info("Contributor statistics request", extra={
-        'user_id': user_id
-    })
-    
-    try:
-        # Aggregate statistics
-        total_contributors = Contributor.objects.count()
-        active_contributors = Contributor.objects.filter(
-            projects__last_active_at__gte=timezone.now() - timezone.timedelta(days=30)
-        ).distinct().count()
-        
-        # Top contributors by commits
-        top_contributors = ProjectContributor.objects.values(
-            'contributor__github_login', 'contributor__id'
-        ).annotate(
-            total_commits=Sum('commits_count')
-        ).order_by('-total_commits')[:10]
-        
-        # Language statistics
-        language_stats = CodeFile.objects.values('language').annotate(
-            file_count=Count('id'),
-            total_loc=Sum('loc')
-        ).order_by('-file_count')[:10]
-        
-        stats = {
-            'total_contributors': total_contributors,
-            'active_contributors': active_contributors,
-            'total_projects': Project.objects.count(),
-            'total_code_files': CodeFile.objects.count(),
-            'total_commits': Commit.objects.count(),
-            'top_contributors': list(top_contributors),
-            'language_statistics': list(language_stats),
-            'generated_at': timezone.now().isoformat()
-        }
-        
-        logger.info("Contributor statistics retrieved successfully", extra={
-            'user_id': user_id,
-            'total_contributors': total_contributors,
-            'active_contributors': active_contributors
-        })
-        
-        return ApiResponse.success(
-            data=stats,
-            message="Contributor statistics retrieved successfully"
-        )
-        
-    except Exception as e:
-        logger.error("Failed to retrieve contributor statistics", extra={
-            'user_id': user_id,
-            'error': str(e)
-        }, exc_info=True)
-        return ApiResponse.internal_error(
-            error_message="Failed to retrieve contributor statistics",
-            error_code="CONTRIBUTOR_STATS_ERROR"
-        )
+ 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -420,13 +289,8 @@ def project_contributor_analysis(request, project_id):
             project_id=project_id
         ).select_related('contributor').order_by('-commits_count')
         
-        # Get file distribution by contributor
-        file_stats = CodeFile.objects.filter(project_id=project_id).values(
-            'language'
-        ).annotate(
-            file_count=Count('id'),
-            total_loc=Sum('loc')
-        )
+        # File language distribution removed (CodeFile table deleted)
+        file_stats = []
         
         # Get commit timeline
         recent_commits = Commit.objects.filter(
@@ -446,7 +310,7 @@ def project_contributor_analysis(request, project_id):
             'summary': {
                 'total_contributors': contributors.count(),
                 'total_commits': contributors.aggregate(total=Sum('commits_count'))['total'] or 0,
-                'total_files': CodeFile.objects.filter(project_id=project_id).count(),
+                'total_files': 0,
                 'analysis_date': timezone.now().isoformat()
             }
         }
@@ -636,13 +500,14 @@ def project_contributors_classification(request, project_id):
             # Apply pagination
             paginator = DefaultPagination()
             page = paginator.paginate_queryset(queryset, request)
-            
             serializer = ProjectContributorClassificationSerializer(page, many=True)
-            
-            return paginator.get_paginated_response(
-                serializer.data,
-                message=f"Retrieved {len(serializer.data)} contributors for classification"
-            )
+            # Build paginated response manually with ApiResponse
+            return ApiResponse.success(data={
+                'results': serializer.data,
+                'count': paginator.page.paginator.count,
+                'next': paginator.get_next_link(),
+                'previous': paginator.get_previous_link()
+            }, message=f"Retrieved {len(serializer.data)} contributors for classification")
         
         elif request.method == 'PATCH':
             # Batch update contributor classifications
