@@ -8,7 +8,7 @@ from django.db.models import Q, Count
 from django.core.exceptions import ValidationError
 from accounts.models import User
 from django.conf import settings
-from .models import Project, ProjectMember
+from .models import Project, ProjectMember, ProjectRole
 from accounts.models import UserProfile
 from common.git_utils import GitUtils, GitPermissionError
 import threading
@@ -138,20 +138,74 @@ class ProjectService:
                         stderr=e.stderr,
                         solution=e.solution
                     )
-            
+            # Handle duplicate repository URLs with soft-deleted restoration logic
+            if repo_url:
+                existing = Project.objects.filter(repo_url=repo_url).first()
+                if existing:
+                    # If soft-deleted and same owner, restore and update basic fields
+                    if getattr(existing, 'deleted_at', None):
+                        if existing.owner_profile == owner_profile:
+                            existing.restore()
+                            # Update optional fields on restore
+                            if project_data.get('name'):
+                                existing.name = project_data['name']
+                            if project_data.get('default_branch'):
+                                existing.default_branch = project_data['default_branch']
+                            if project_data.get('description') is not None:
+                                existing.description = project_data.get('description')
+                            if project_data.get('repo_type'):
+                                existing.repo_type = project_data['repo_type']
+                            existing.save()
+                            # Attempt to clone repository upon restore if repo URL is available
+                            try:
+                                clone_result = ProjectService.clone_repository_for_project(existing, repo_url)
+                                return {
+                                    'project': existing,
+                                    'success': True,
+                                    'message': 'Project restored and repository cloned successfully',
+                                    'repository_info': {
+                                        'branches': clone_result.get('branches', []),
+                                        'current_branch': clone_result.get('current_branch'),
+                                        'repository_path': clone_result.get('repository_path'),
+                                        'used_authentication': clone_result.get('used_authentication', False)
+                                    }
+                                }
+                            except GitPermissionError as e:
+                                # Restoration succeeded but cloning failed due to auth
+                                return {
+                                    'project': existing,
+                                    'success': True,
+                                    'message': 'Project restored successfully, but repository cloning failed',
+                                    'warning': e.message,
+                                    'error_type': e.error_type
+                                }
+                            except ValidationError as e:
+                                return {
+                                    'project': existing,
+                                    'success': True,
+                                    'message': 'Project restored successfully, but repository cloning failed',
+                                    'warning': str(e)
+                                }
+                        else:
+                            raise ValidationError("This repository URL already exists and belongs to another owner.")
+                    else:
+                        raise ValidationError("This repository URL is already used by another project.")
+
             # Create project
             project = Project.objects.create(
                 name=project_data['name'],
                 repo_url=project_data.get('repo_url', ''),
                 default_branch=project_data.get('default_branch', ''),
-                owner_profile=owner_profile
+                owner_profile=owner_profile,
+                description=project_data.get('description'),
+                repo_type=project_data.get('repo_type') or Project._meta.get_field('repo_type').default,
             )
             
             # Automatically add owner as project member
             ProjectMember.objects.create(
                 project=project,
                 profile=owner_profile,
-                role=ProjectMember.Role.OWNER
+                role=ProjectRole.OWNER
             )
             
             # If repository URL is provided, clone the repository
@@ -229,7 +283,7 @@ class ProjectService:
     @staticmethod
     def delete_project(project, user_profile):
         """
-        Delete project.
+        Soft-delete project.
         
         Args:
             project: Project instance
@@ -243,7 +297,11 @@ class ProjectService:
         
         try:
             project_name = project.name
-            project.delete()
+            # Perform soft delete to preserve history and related data
+            if hasattr(project, 'soft_delete'):
+                project.soft_delete()
+            else:
+                project.delete()
             
             return {
                 'success': True,
@@ -399,7 +457,7 @@ class ProjectService:
             member = project.members.get(id=member_id)
             
             # Prevent removing the owner
-            if member.role == ProjectMember.Role.OWNER:
+            if member.role == ProjectRole.OWNER:
                 raise ValidationError("Cannot remove project owner")
             
             member_username = member.profile.user.username
@@ -435,7 +493,7 @@ class ProjectService:
         try:
             member = project.members.get(profile__user__id=user_id)
 
-            if member.role == ProjectMember.Role.OWNER:
+            if member.role == ProjectRole.OWNER:
                 raise ValidationError("Cannot remove project owner")
 
             member_username = member.profile.user.username
@@ -472,7 +530,7 @@ class ProjectService:
             member = project.members.get(id=member_id)
             
             # Prevent changing owner role
-            if member.role == ProjectMember.Role.OWNER:
+            if member.role == ProjectRole.OWNER:
                 raise ValidationError("Cannot change project owner role")
             
             old_role = member.role
@@ -510,7 +568,7 @@ class ProjectService:
             raise ValidationError("Only project owner can update member roles")
         try:
             member = project.members.get(profile__user__id=user_id)
-            if member.role == ProjectMember.Role.OWNER:
+            if member.role == ProjectRole.OWNER:
                 raise ValidationError("Cannot change project owner role")
             old_role = member.role
             member.role = new_role
@@ -698,7 +756,7 @@ class ProjectService:
         user_membership = project.members.filter(profile=user_profile).first()
         
         if not (project.owner_profile == user_profile or 
-                (user_membership and user_membership.role in [ProjectMember.Role.OWNER, ProjectMember.Role.MAINTAINER])):
+                (user_membership and user_membership.role in [ProjectRole.OWNER, ProjectRole.MAINTAINER])):
             raise ValidationError("Only project owner or maintainer can update the default branch")
         
         if not new_branch or len(new_branch.strip()) == 0:

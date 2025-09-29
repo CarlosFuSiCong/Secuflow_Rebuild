@@ -54,7 +54,8 @@ def run_tnm(request):
 			return ApiResponse.not_found('Project not found')
 	user_profile = request.user.profile
 	membership = project.members.filter(profile=user_profile).first()
-	if not (project.owner_profile == user_profile or (membership and membership.role in [ProjectMember.Role.OWNER, ProjectMember.Role.MAINTAINER])):
+	from projects.models import ProjectRole
+	if not (project.owner_profile == user_profile or (membership and membership.role in [ProjectRole.OWNER, ProjectRole.MAINTAINER])):
 		return ApiResponse.forbidden('Only project owner or maintainer can run TNM')
 
 	# Default safe_mode to True unless explicitly set false

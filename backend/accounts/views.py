@@ -11,7 +11,8 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from .models import UserProfile
 from .serializers import (
-    UserSerializer, UserProfileSerializer, RegisterSerializer, LoginSerializer
+    UserSerializer, UserProfileSerializer, RegisterSerializer, LoginSerializer,
+    UserProfileUpdateSerializer
 )
 from .services import UserProfileService, UserService
 from common.response import ApiResponse
@@ -363,8 +364,8 @@ class UserViewSet(viewsets.ModelViewSet):
         })
         
         try:
-            # Validate input data
-            serializer = UserProfileSerializer(data=request.data, partial=True)
+            # Validate input data (allow updating basic account fields)
+            serializer = UserProfileUpdateSerializer(data=request.data, partial=True)
             if not serializer.is_valid():
                 logger.warning("Profile update failed - validation error", extra={
                     'user_id': user_id,

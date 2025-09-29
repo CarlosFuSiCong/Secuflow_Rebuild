@@ -42,9 +42,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer for UserProfile model."""
-    
+
     user = UserSerializer(read_only=True)
-    
+
     class Meta:
         model = UserProfile
         fields = [
@@ -52,6 +52,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at', 'selected_project'
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+
+class UserProfileUpdateSerializer(serializers.Serializer):
+    """Serializer used for validating profile update payload."""
+
+    contact_email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    first_name = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=150)
+    last_name = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=150)
 
 
 class GitCredentialSerializer(serializers.ModelSerializer):
@@ -176,14 +184,13 @@ class RegisterSerializer(serializers.ModelSerializer):
         if not email:
             raise serializers.ValidationError("Email is required")
         
-        # Get username part from email (before @)
-        base_username = email.split('@')[0]
+        # Use full email as username
+        username = email
         
-        # Try to find a unique username
-        username = base_username
+        # Try to find a unique username if email is already taken
         counter = 1
         while User.objects.filter(username=username).exists():
-            username = f"{base_username}{counter}"
+            username = f"{email}_{counter}"
             counter += 1
         
         # Add generated username to data

@@ -101,6 +101,8 @@ class UserProfileService:
                     first_name=first_name, 
                     last_name=last_name
                 )
+                # Re-save profile to trigger display_name update
+                profile.save()
             
             # Update profile info
             if contact_email is not None:
@@ -244,7 +246,11 @@ class UserService:
         """
         try:
             token = RefreshToken(refresh_token)
-            token.blacklist()
+
+            # Blacklist refresh token when the app supports it; otherwise succeed silently.
+            if hasattr(token, 'blacklist'):
+                token.blacklist()
+
             return {
                 'success': True,
                 'message': 'Logout successful'

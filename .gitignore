@@ -94,3 +94,4 @@ backend/tnm-cli.jar
 *.swp
 *.swo
 .claude/settings.local.json
+JSS_Appendix.pdf

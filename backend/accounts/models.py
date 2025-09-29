@@ -81,12 +81,19 @@ class UserProfile(models.Model):
             # For new profiles, use email as display_name
             self.display_name = self.user.email
         else:
-            # For updates, use first_name + last_name if available
-            first_name = (self.user.first_name or '').strip()
-            last_name = (self.user.last_name or '').strip()
-            if first_name or last_name:
-                self.display_name = f"{first_name} {last_name}".strip()
-            # Keep existing display_name if no first/last name provided
+            # For updates, get latest first_name/last_name from database
+            # Use a fresh query to avoid affecting the current user instance
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            try:
+                fresh_user = User.objects.get(id=self.user.id)
+                first_name = (fresh_user.first_name or '').strip()
+                last_name = (fresh_user.last_name or '').strip()
+                if first_name or last_name:
+                    self.display_name = f"{first_name} {last_name}".strip()
+                # Keep existing display_name if no first/last name provided
+            except User.DoesNotExist:
+                pass
         
         super().save(*args, **kwargs)
 

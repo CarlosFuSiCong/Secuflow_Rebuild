@@ -51,7 +51,7 @@ from accounts.models import User
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 
-from .models import Project, ProjectMember
+from .models import Project, ProjectMember, ProjectRole
 from .serializers import (
     ProjectSerializer, ProjectCreateSerializer, ProjectListSerializer, ProjectMemberSerializer,
     ProjectMemberCreateSerializer, ProjectStatsSerializer
@@ -101,8 +101,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
         
         if not user_profile:
             return Project.objects.none()
-            
-        # Get query parameters
+        
+        # For detail actions, return an unsliced queryset to avoid DRF filtering on a sliced QS
+        # which raises: "Cannot filter a query once a slice has been taken."
+        if getattr(self, 'action', None) and self.action != 'list':
+            return Project.objects.all()
+        
+        # List action: use service-layer search (may apply slicing for manual pagination)
         query = self.request.query_params.get('q')
         repo_type = self.request.query_params.get('repo_type')
         role = self.request.query_params.get('role')
@@ -114,7 +119,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if sort_by not in valid_sort_fields:
             sort_by = '-created_at'
         
-        # Use service layer with enhanced search
         return ProjectService.search_projects(
             user_profile=user_profile,
             query=query,
@@ -122,7 +126,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             role=role,
             sort_by=sort_by,
             include_deleted=include_deleted
-        )['projects']  # Extract projects from result
+        )['projects']
     
     def create(self, request, *args, **kwargs):
         """Create a new project using service layer."""
@@ -268,8 +272,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 error_code="PROJECT_DELETION_ERROR"
             )
         except Exception as e:
+            logger.error("Project deletion failed", extra={
+                'user_id': request.user.id if request and request.user else None,
+                'project_id': locals().get('project').id if 'project' in locals() else None,
+                'error': str(e)
+            }, exc_info=True)
             return ApiResponse.internal_error(
-                error_message="Project deletion failed",
+                error_message=f"Project deletion failed: {str(e)}",
                 error_code="PROJECT_DELETION_ERROR"
             )
     
@@ -480,7 +489,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Get projects where user is owner or maintainer (can run TNM)
             user_projects = Project.objects.filter(
                 Q(owner_profile=user_profile) | 
-                Q(members__profile=user_profile, members__role__in=[ProjectMember.Role.OWNER, ProjectMember.Role.MAINTAINER])
+                Q(members__profile=user_profile, members__role__in=[ProjectRole.OWNER, ProjectRole.MAINTAINER])
             ).distinct().order_by('-created_at')
             
             # Filter projects that have repositories
@@ -528,7 +537,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 return ApiResponse.not_found('Project not found')
             # Only owner or maintainer can select for TNM
             membership = project.members.filter(profile=user_profile).first()
-            if not (project.owner_profile == user_profile or (membership and membership.role in [ProjectMember.Role.OWNER, ProjectMember.Role.MAINTAINER])):
+            if not (project.owner_profile == user_profile or (membership and membership.role in [ProjectRole.OWNER, ProjectRole.MAINTAINER])):
                 return ApiResponse.forbidden('Only project owner or maintainer can select this project')
             user_profile.selected_project = project
             user_profile.save(update_fields=['selected_project'])
@@ -540,7 +549,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def roles(self, request):
         """Get all available project roles."""
         try:
-            from .models import ProjectRole
             roles = ProjectRole.get_all_roles()
             return ApiResponse.success(
                 data=roles,
@@ -643,8 +651,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
-            print(f"Error in branches: {str(e)}")
-            print(f"Traceback: {error_details}")
+            logger.error("Error in branches", extra={
+                'error': str(e),
+                'traceback': error_details
+            })
             return ApiResponse.internal_error(
                 error_message="Failed to get branches",
                 error_code="BRANCHES_RETRIEVAL_ERROR"
@@ -660,7 +670,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Check if user has permission to update project settings
             user_membership = project.members.filter(profile=user_profile).first()
             if not (project.owner_profile == user_profile or 
-                    (user_membership and user_membership.role in [ProjectMember.Role.OWNER, ProjectMember.Role.MAINTAINER])):
+                    (user_membership and user_membership.role in [ProjectRole.OWNER, ProjectRole.MAINTAINER])):
                 return ApiResponse.forbidden(
                     error_message="Only project owner or maintainer can switch branches",
                     error_code="ACCESS_DENIED"
@@ -710,8 +720,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
-            print(f"Error in switch_branch: {str(e)}")
-            print(f"Traceback: {error_details}")
+            logger.error("Error in switch_branch", extra={
+                'error': str(e),
+                'traceback': error_details
+            })
             return ApiResponse.internal_error(
                 error_message="Failed to switch branch",
                 error_code="BRANCH_SWITCH_ERROR"
@@ -948,7 +960,7 @@ class ProjectMemberViewSet(viewsets.ModelViewSet):
             )
         
         # Prevent changing owner role
-        if member.role == ProjectMember.Role.OWNER:
+        if member.role == ProjectRole.OWNER:
             return Response(
                 {'error': 'Cannot change project owner role.'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -969,7 +981,7 @@ class ProjectMemberViewSet(viewsets.ModelViewSet):
             )
         
         # Prevent removing the owner
-        if member.role == ProjectMember.Role.OWNER:
+        if member.role == ProjectRole.OWNER:
             return Response(
                 {'error': 'Cannot remove project owner.'},
                 status=status.HTTP_400_BAD_REQUEST

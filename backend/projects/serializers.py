@@ -52,13 +52,14 @@ class ProjectCreateSerializer(serializers.ModelSerializer):
         
         # Get available branches from the repository
         try:
-            branches = ProjectService.get_repository_branches(instance.repo_url)
-            data['available_branches'] = branches
+            result = ProjectService.get_project_branches(instance)
+            branch_names = [b.get('name') for b in result.get('branches', []) if isinstance(b, dict) and b.get('name')]
+            data['available_branches'] = branch_names
             
             # Suggest default branch based on common conventions
-            if 'main' in branches:
+            if 'main' in branch_names:
                 data['suggested_default_branch'] = 'main'
-            elif 'master' in branches:
+            elif 'master' in branch_names:
                 data['suggested_default_branch'] = 'master'
         except Exception as e:
             data['available_branches'] = []
