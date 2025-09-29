@@ -22,7 +22,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Menu, Zap, Search, X } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getCurrentUser, updateProfile } from "@/lib/api/users";
+import type { User } from "@/lib/types/user";
 
 export function Navbar2() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -210,6 +212,63 @@ export function Navbar2() {
 }
 
 export default function ProfilePage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState<string>("");
+  const [lastName, setLastName] = useState<string>("");
+  const [contactEmail, setContactEmail] = useState<string>("");
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const resp = await getCurrentUser();
+        if (resp.succeed && resp.data) {
+          setUser(resp.data);
+          setFirstName(resp.data.first_name || "");
+          setLastName(resp.data.last_name || "");
+          setContactEmail(resp.data.contact_email || "");
+        } else {
+          setError(resp.errorMessage || "Failed to load user");
+        }
+      } catch (e: any) {
+        setError(e?.message || "Failed to load user");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const onSaveBasic = async () => {
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const resp = await updateProfile({
+        contact_email: contactEmail,
+        first_name: firstName,
+        last_name: lastName,
+      });
+      if (resp?.succeed) {
+        setMessage("Profile updated");
+        // Refresh user data
+        const me = await getCurrentUser();
+        if (me.succeed && me.data) setUser(me.data);
+      } else {
+        setError(resp?.errorMessage || "Update failed");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Update failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="bg-background">
       {/* Use the inline Navbar component - Restored for preview */}
@@ -286,25 +345,47 @@ export default function ProfilePage() {
                 <div className="col-span-8 space-y-4 md:space-y-6 lg:col-span-4">
                   <div className="space-y-2">
                     <Label htmlFor="username">Username</Label>
-                    <Input id="username" value="secuflow_user" readOnly />
+                    <Input id="username" value={user?.username || ""} readOnly />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="firstname">First name</Label>
-                    <Input id="firstname" defaultValue="John" />
+                    <Input
+                      id="firstname"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      disabled={loading}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastname">Last name</Label>
-                    <Input id="lastname" defaultValue="Doe" />
+                    <Input
+                      id="lastname"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      disabled={loading}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email address</Label>
+                    <Input id="email" type="email" value={user?.email || ""} readOnly />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact_email">Contact email</Label>
                     <Input
-                      id="email"
+                      id="contact_email"
                       type="email"
-                      defaultValue="user@secuflow.com"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      disabled={loading}
                     />
                   </div>
-                  <Button>Save</Button>
+                  <div className="flex items-center gap-3">
+                    <Button onClick={onSaveBasic} disabled={saving || loading}>
+                      {saving ? "Saving..." : "Save"}
+                    </Button>
+                    {message && <span className="text-sm text-green-600">{message}</span>}
+                    {error && <span className="text-sm text-red-600">{error}</span>}
+                  </div>
                 </div>
               </section>
 
