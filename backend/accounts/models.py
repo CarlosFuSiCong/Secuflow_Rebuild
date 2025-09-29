@@ -59,7 +59,6 @@ class UserProfile(models.Model):
         auto_now=True, 
         verbose_name="Updated At"
     )
-    last_activity = models.DateTimeField(null=True, blank=True, help_text="Last user activity timestamp")
     selected_project = models.ForeignKey(
         'projects.Project', on_delete=models.SET_NULL, null=True, blank=True, related_name='selected_by_profiles'
     )
@@ -76,13 +75,19 @@ class UserProfile(models.Model):
         # Default contact_email to the linked user's email if not provided
         if not self.contact_email:
             self.contact_email = self.user.email or ''
-        # Auto-generate display_name from first_name + last_name, fallback to email
-        first_name = (self.user.first_name or '').strip()
-        last_name = (self.user.last_name or '').strip()
-        if first_name or last_name:
-            self.display_name = f"{first_name} {last_name}".strip()
+        
+        # Handle display_name
+        if not self.pk:  # First time creation
+            # For new profiles, use email as display_name
+            self.display_name = self.user.email
         else:
-            self.display_name = self.user.email or self.user.username
+            # For updates, use first_name + last_name if available
+            first_name = (self.user.first_name or '').strip()
+            last_name = (self.user.last_name or '').strip()
+            if first_name or last_name:
+                self.display_name = f"{first_name} {last_name}".strip()
+            # Keep existing display_name if no first/last name provided
+        
         super().save(*args, **kwargs)
 
 

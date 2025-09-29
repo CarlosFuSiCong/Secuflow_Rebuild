@@ -10,10 +10,34 @@ from .models import User, UserProfile, GitCredential
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model."""
     
+    contact_email = serializers.SerializerMethodField()
+    display_name = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
+    
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'date_joined']
-        read_only_fields = ['id', 'date_joined']
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'date_joined', 'last_login', 'contact_email', 'display_name',
+            'avatar'
+        ]
+        read_only_fields = ['id', 'date_joined', 'last_login']
+    
+    def get_contact_email(self, obj):
+        """Get user's contact email from profile."""
+        return obj.profile.contact_email if hasattr(obj, 'profile') else obj.email
+    
+    def get_display_name(self, obj):
+        """Get user's display name from profile."""
+        if hasattr(obj, 'profile') and obj.profile.display_name:
+            return obj.profile.display_name
+        return obj.get_full_name() or obj.username
+    
+    def get_avatar(self, obj):
+        """Get user's avatar URL from profile."""
+        if hasattr(obj, 'profile') and obj.profile.avatar:
+            return obj.profile.avatar.url
+        return None
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -141,12 +165,30 @@ class RegisterSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'password_confirm', 'first_name', 'last_name']
+        fields = ['email', 'password', 'password_confirm', 'first_name', 'last_name']
     
     def validate(self, data):
-        """Validate password confirmation."""
+        """Validate password confirmation and generate username from email."""
         if data['password'] != data['password_confirm']:
             raise serializers.ValidationError("Passwords do not match")
+        
+        email = data.get('email')
+        if not email:
+            raise serializers.ValidationError("Email is required")
+        
+        # Get username part from email (before @)
+        base_username = email.split('@')[0]
+        
+        # Try to find a unique username
+        username = base_username
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}{counter}"
+            counter += 1
+        
+        # Add generated username to data
+        data['username'] = username
+        
         return data
     
     def create(self, validated_data):
