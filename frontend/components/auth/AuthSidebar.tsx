@@ -32,12 +32,14 @@ export function AuthSidebar({ className, theme = "inverse" }: AuthSidebarProps) 
             <AvatarFallback>{AVATAR_FALLBACK}</AvatarFallback>
           </Avatar>
           <p className="mb-6 text-lg opacity-90">
-            "{TESTIMONIAL_TEXT}"
+            "Secuflow has revolutionized our security workflow. The automated vulnerability
+            scanning and comprehensive reporting give us confidence in our code quality.
+            It's an essential tool for any development team serious about security."
           </p>
         </div>
         <div>
-          <p className="font-semibold">{AUTHOR_NAME}</p>
-          <p className="opacity-80">{AUTHOR_TITLE}</p>
+          <p className="font-semibold">Sicong Fu</p>
+          <p className="opacity-80">Security Engineer at TechCorp</p>
         </div>
       </div>
     </div>
