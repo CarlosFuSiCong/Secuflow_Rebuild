@@ -7,7 +7,6 @@ router = DefaultRouter()
 # Removed contributors list endpoint per requirement
 router.register(r'project-contributors', views.ProjectContributorViewSet)
 router.register(r'code-files', views.CodeFileViewSet)
-router.register(r'commits', views.CommitViewSet)
 
 # URL patterns
 urlpatterns = [
@@ -15,7 +14,6 @@ urlpatterns = [
     path('', include(router.urls)),
     
     # Additional function-based views
-    path('stats/', views.contributor_stats, name='contributor-stats'),
     path('projects/<int:project_id>/analysis/', views.project_contributor_analysis, name='project-contributor-analysis'),
     
     # TNM Analysis and Classification APIs
