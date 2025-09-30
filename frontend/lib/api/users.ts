@@ -23,11 +23,11 @@ export async function updateProfile(payload: UpdateProfilePayload) {
   return data;
 }
 
-export async function changePassword(oldPassword: string, newPassword: string) {
+export async function changePassword(oldPassword: string, newPassword: string, newPasswordConfirm: string) {
   const { data } = await apiClient.post("/users/change_password/", {
     old_password: oldPassword,
     new_password: newPassword,
-    new_password_confirm: newPassword,
+    new_password_confirm: newPasswordConfirm,
   });
   return data;
 }
