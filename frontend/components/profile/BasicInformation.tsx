@@ -11,7 +11,7 @@ const TEXT = {
 
 export function BasicInformation() {
   return (
-    <section className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-8">
+    <section id="basic-info" className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-8">
       <SectionHeader
         title={TEXT.SECTION_TITLE}
         description={TEXT.SECTION_DESCRIPTION}

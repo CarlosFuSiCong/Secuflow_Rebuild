@@ -17,6 +17,7 @@ const TEXT = {
   BUTTON_SAVING: "Saving...",
   MESSAGE_SUCCESS: "Profile updated",
   MESSAGE_ERROR_LOAD: "Failed to load user",
+  MESSAGE_NO_CHANGES: "No changes detected",
 };
 
 export function BasicInfoForm() {
@@ -26,6 +27,11 @@ export function BasicInfoForm() {
   const [lastName, setLastName] = useState<string>("");
   const [contactEmail, setContactEmail] = useState<string>("");
 
+  // Store original values for comparison
+  const [originalFirstName, setOriginalFirstName] = useState<string>("");
+  const [originalLastName, setOriginalLastName] = useState<string>("");
+  const [originalContactEmail, setOriginalContactEmail] = useState<string>("");
+
   const { loading, error, message, handleSubmit } = useProfileForm({
     apiCall: updateProfile,
     onSuccess: async () => {
@@ -33,9 +39,18 @@ export function BasicInfoForm() {
       const me = await getCurrentUser();
       if (me.succeed && me.data) {
         setUser(me.data);
-        setFirstName(me.data.first_name || "");
-        setLastName(me.data.last_name || "");
-        setContactEmail(me.data.contact_email || "");
+        const newFirstName = me.data.first_name || "";
+        const newLastName = me.data.last_name || "";
+        const newContactEmail = me.data.contact_email || "";
+
+        setFirstName(newFirstName);
+        setLastName(newLastName);
+        setContactEmail(newContactEmail);
+
+        // Update original values
+        setOriginalFirstName(newFirstName);
+        setOriginalLastName(newLastName);
+        setOriginalContactEmail(newContactEmail);
       }
     },
     successMessage: TEXT.MESSAGE_SUCCESS,
@@ -48,9 +63,18 @@ export function BasicInfoForm() {
         const resp = await getCurrentUser();
         if (resp.succeed && resp.data) {
           setUser(resp.data);
-          setFirstName(resp.data.first_name || "");
-          setLastName(resp.data.last_name || "");
-          setContactEmail(resp.data.contact_email || "");
+          const loadedFirstName = resp.data.first_name || "";
+          const loadedLastName = resp.data.last_name || "";
+          const loadedContactEmail = resp.data.contact_email || "";
+
+          setFirstName(loadedFirstName);
+          setLastName(loadedLastName);
+          setContactEmail(loadedContactEmail);
+
+          // Store original values
+          setOriginalFirstName(loadedFirstName);
+          setOriginalLastName(loadedLastName);
+          setOriginalContactEmail(loadedContactEmail);
         }
       } catch (e: any) {
         console.error(TEXT.MESSAGE_ERROR_LOAD, e);
@@ -62,6 +86,16 @@ export function BasicInfoForm() {
   }, []);
 
   const onSubmit = () => {
+    // Check if data has changed
+    if (
+      firstName === originalFirstName &&
+      lastName === originalLastName &&
+      contactEmail === originalContactEmail
+    ) {
+      alert(TEXT.MESSAGE_NO_CHANGES);
+      return;
+    }
+
     handleSubmit({
       contact_email: contactEmail,
       first_name: firstName,
