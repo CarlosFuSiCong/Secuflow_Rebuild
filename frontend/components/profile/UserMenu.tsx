@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { logout } from "@/lib/api/auth";
 
 // Text constants
 const TEXT = {
@@ -32,12 +34,15 @@ export function UserMenu({
   avatarUrl = "https://github.com/shadcn.png",
   onLogout,
 }: UserMenuProps) {
-  const handleLogout = () => {
+  const router = useRouter();
+
+  const handleLogout = async () => {
     if (onLogout) {
       onLogout();
     } else {
-      // Default logout behavior
-      console.log("Logout clicked");
+      // Default logout behavior: call API and redirect
+      await logout();
+      router.push("/sign-in");
     }
   };
 

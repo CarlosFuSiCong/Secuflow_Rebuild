@@ -25,8 +25,23 @@ export async function register(email: string, password: string): Promise<AuthRes
   return data;
 }
 
-export function logout() {
+export async function logout() {
   if (typeof window === "undefined") return;
+
+  const refreshToken = localStorage.getItem("refresh_token");
+
+  // Call logout API if refresh token exists
+  if (refreshToken) {
+    try {
+      await apiClient.post("/auth/logout/", {
+        refresh: refreshToken,
+      });
+    } catch (error) {
+      console.error("Logout API call failed:", error);
+    }
+  }
+
+  // Clear tokens from localStorage
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
 }
