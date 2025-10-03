@@ -19,4 +19,8 @@ urlpatterns = [
     path('projects/<uuid:project_id>/analyze_tnm/', views.analyze_tnm_contributors, name='analyze-tnm-contributors'),
     path('projects/<uuid:project_id>/classification/', views.project_contributors_classification, name='project-contributors-classification'),
     path('functional-role-choices/', views.functional_role_choices, name='functional-role-choices'),
+    
+    # Async Task Management APIs
+    path('tasks/<str:task_id>/status/', views.get_analysis_task_status, name='get-analysis-task-status'),
+    path('tasks/', views.list_analysis_tasks, name='list-analysis-tasks'),
 ]
