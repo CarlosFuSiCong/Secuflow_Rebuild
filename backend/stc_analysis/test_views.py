@@ -217,20 +217,35 @@ class STCAnalysisStartTest(TestCase):
         tnm_dir = os.path.join(self.temp_dir, f'project_{self.project.id}_main')
         os.makedirs(tnm_dir, exist_ok=True)
         
-        # Create CA matrix (Contribution Assignment: 3 developers × 4 files)
-        # This is what TNM actually outputs - developers' contributions to files
-        ca_matrix = [
-            [5, 3, 0, 2],  # Developer 0's contributions to files 0-3
-            [2, 4, 3, 0],  # Developer 1's contributions to files 0-3
-            [0, 1, 5, 4]   # Developer 2's contributions to files 0-3
-        ]
+        # Create Assignment Matrix in TNM sparse format (user_id -> {file_id: modifications})
+        # This is the actual TNM output format
+        assignment_matrix = {
+            '0': {'0': 5, '1': 3, '3': 2},  # Developer 0's contributions
+            '1': {'0': 2, '1': 4, '2': 3},  # Developer 1's contributions
+            '2': {'1': 1, '2': 5, '3': 4}   # Developer 2's contributions
+        }
         with open(os.path.join(tnm_dir, 'AssignmentMatrix.json'), 'w') as f:
-            json.dump(ca_matrix, f)
+            json.dump(assignment_matrix, f)
+        
+        # Create File Dependency Matrix in TNM sparse format (file_id -> {file_id: dependencies})
+        dependency_matrix = {
+            '0': {'1': 1, '3': 1},  # File 0 depends on files 1, 3
+            '1': {'0': 1, '2': 1},  # File 1 depends on files 0, 2
+            '2': {'1': 1, '3': 1},  # File 2 depends on files 1, 3
+            '3': {'0': 1, '2': 1}   # File 3 depends on files 0, 2
+        }
+        with open(os.path.join(tnm_dir, 'FileDependencyMatrix.json'), 'w') as f:
+            json.dump(dependency_matrix, f)
         
         # Create user mapping
         user_mapping = {'0': 'user1', '1': 'user2', '2': 'user3'}
         with open(os.path.join(tnm_dir, 'idToUser.json'), 'w') as f:
             json.dump(user_mapping, f)
+        
+        # Create file mapping
+        file_mapping = {'0': 'file1.py', '1': 'file2.py', '2': 'file3.py', '3': 'file4.py'}
+        with open(os.path.join(tnm_dir, 'idToFile.json'), 'w') as f:
+            json.dump(file_mapping, f)
         
         url = reverse('stc-analysis-start-analysis', kwargs={'pk': self.analysis.id})
         data = {
@@ -242,7 +257,8 @@ class STCAnalysisStartTest(TestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         response_data = json.loads(response.content)
-        self.assertIn('total_nodes', response_data['data'])
+        self.assertIn('stc_value', response_data['data'])  # Changed from total_nodes
+        self.assertIn('results_file', response_data['data'])
         
         # Check analysis was updated
         self.analysis.refresh_from_db()
@@ -302,12 +318,20 @@ class STCAnalysisResultsTest(TestCase):
             'project_id': str(self.project.id),
             'analysis_date': '2025-10-03T10:00:00Z',
             'use_monte_carlo': False,
-            'total_nodes': 3,
-            'results': [
-                {'node_id': '0', 'contributor_login': 'user1', 'stc_value': 0.85, 'rank': 1},
-                {'node_id': '1', 'contributor_login': 'user2', 'stc_value': 0.72, 'rank': 2},
-                {'node_id': '2', 'contributor_login': 'user3', 'stc_value': 0.65, 'rank': 3}
-            ]
+            'results': {
+                'stc_value': 0.75,
+                'total_required_edges': 10,
+                'total_actual_edges': 8,
+                'satisfied_edges': 7,
+                'developers': [
+                    {'user_id': '0', 'contributor_login': 'user1', 'missed_coordination_count': 1, 
+                     'required_coordination': 5, 'actual_coordination': 4},
+                    {'user_id': '1', 'contributor_login': 'user2', 'missed_coordination_count': 2,
+                     'required_coordination': 6, 'actual_coordination': 4},
+                    {'user_id': '2', 'contributor_login': 'user3', 'missed_coordination_count': 0,
+                     'required_coordination': 4, 'actual_coordination': 4}
+                ]
+            }
         }
         
         with open(self.results_file, 'w') as f:
@@ -329,8 +353,9 @@ class STCAnalysisResultsTest(TestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = json.loads(response.content)
-        self.assertEqual(data['data']['total_nodes'], 3)
-        self.assertEqual(len(data['data']['results']), 3)
+        self.assertIn('results', data['data'])
+        self.assertEqual(data['data']['results']['stc_value'], 0.75)
+        self.assertEqual(len(data['data']['results']['developers']), 3)
     
     def test_get_results_top_n(self):
         """Test retrieving top N results"""
@@ -339,7 +364,7 @@ class STCAnalysisResultsTest(TestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = json.loads(response.content)
-        self.assertEqual(len(data['data']['results']), 2)
+        self.assertEqual(len(data['data']['results']['developers']), 2)
     
     def test_get_results_not_completed(self):
         """Test getting results for incomplete analysis"""
@@ -383,7 +408,7 @@ class STCComparisonTest(TestCase):
             contributor=self.contributor1,
             total_modifications=5000,
             files_modified=150,
-            functional_role='coder',
+            functional_role='developer',
             is_core_contributor=True
         )
         ProjectContributor.objects.create(
@@ -391,7 +416,7 @@ class STCComparisonTest(TestCase):
             contributor=self.contributor2,
             total_modifications=2000,
             files_modified=80,
-            functional_role='reviewer',
+            functional_role='security',
             is_core_contributor=False
         )
         
@@ -413,10 +438,20 @@ class STCComparisonTest(TestCase):
         results_data = {
             'analysis_id': self.analysis.id,
             'project_id': str(self.project.id),
-            'results': [
-                {'node_id': '0', 'contributor_login': 'user1', 'stc_value': 0.85, 'rank': 1},
-                {'node_id': '1', 'contributor_login': 'user2', 'stc_value': 0.72, 'rank': 2}
-            ]
+            'analysis_date': '2025-10-03T10:00:00Z',
+            'use_monte_carlo': False,
+            'results': {
+                'stc_value': 0.75,
+                'total_required_edges': 10,
+                'total_actual_edges': 8,
+                'satisfied_edges': 7,
+                'developers': [
+                    {'user_id': '0', 'contributor_login': 'user1', 'missed_coordination_count': 1,
+                     'required_coordination': 5, 'actual_coordination': 4},
+                    {'user_id': '1', 'contributor_login': 'user2', 'missed_coordination_count': 2,
+                     'required_coordination': 6, 'actual_coordination': 4}
+                ]
+            }
         }
         
         with open(self.results_file, 'w') as f:
@@ -440,22 +475,23 @@ class STCComparisonTest(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['data']['total_contributors'], 2)
         self.assertEqual(len(data['data']['contributors']), 2)
+        self.assertEqual(data['data']['stc_value'], 0.75)
         
         # Check first contributor data
         contrib = data['data']['contributors'][0]
         self.assertEqual(contrib['contributor_login'], 'user1')
-        self.assertEqual(contrib['stc_value'], 0.85)
+        self.assertIn('missed_coordination_count', contrib)
         self.assertEqual(contrib['total_modifications'], 5000)
     
     def test_comparison_filter_by_role(self):
         """Test filtering comparison by role"""
         url = reverse('project-stc-comparison', kwargs={'project_id': self.project.id})
-        response = self.client.get(url, {'role': 'coder'})
+        response = self.client.get(url, {'role': 'developer'})
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = json.loads(response.content)
         self.assertEqual(data['data']['total_contributors'], 1)
-        self.assertEqual(data['data']['contributors'][0]['functional_role'], 'coder')
+        self.assertEqual(data['data']['contributors'][0]['functional_role'], 'developer')
     
     def test_comparison_top_n(self):
         """Test limiting comparison results"""

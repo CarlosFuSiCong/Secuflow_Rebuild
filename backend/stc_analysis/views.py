@@ -598,13 +598,19 @@ def project_stc_comparison(request, project_id):
             'contributors_count': len(comparison_data)
         })
         
+        # Extract STC value from results
+        stc_value = 0
+        if 'results' in results_data:
+            if isinstance(results_data['results'], dict):
+                stc_value = results_data['results'].get('stc_value', 0)
+        
         return ApiResponse.success(
             data={
                 'analysis_id': analysis.id,
                 'project_id': str(project.id),
                 'project_name': project.name,
                 'analysis_date': analysis.analysis_date.isoformat(),
-                'stc_value': results_data.get('results', {}).get('stc_value', 0),
+                'stc_value': stc_value,
                 'total_contributors': len(comparison_data),
                 'contributors': comparison_data
             },
