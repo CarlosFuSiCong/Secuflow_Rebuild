@@ -1,0 +1,1869 @@
+{
+  "info": {
+    "name": "Secuflow API Collection",
+    "description": "Complete API collection for Secuflow platform testing - Updated with streamlined Project Management APIs and independent MC-STC Analysis endpoints for multi-class socio-technical congruence analysis",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "api_url",
+      "value": "{{base_url}}/api"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"password_confirm\": \"password123\"\n  // username will be auto-generated from email\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/register/",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "register", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        pm.environment.set('access_token', response.data.access);",
+                  "        pm.environment.set('refresh_token', response.data.refresh);",
+                  "        pm.environment.set('user_id', response.data.user.id);",
+                  "        console.log('Registration successful, tokens saved');",
+                  "        console.log('User info:', {",
+                  "            id: response.data.user.id,",
+                  "            email: response.data.user.email,",
+                  "            display_name: response.data.user.display_name,  // Should be email initially",
+                  "            contact_email: response.data.user.contact_email",
+                  "        });",
+                  "    } else {",
+                  "        console.log('Registration failed:', response.errorMessage);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/login/",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "login", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        pm.environment.set('access_token', response.data.access);",
+                  "        pm.environment.set('refresh_token', response.data.refresh);",
+                  "        pm.environment.set('user_id', response.data.user.id);",
+                  "        console.log('Login successful, tokens saved');",
+                  "    } else {",
+                  "        console.log('Login failed:', response.errorMessage);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/token/refresh/",
+              "host": ["{{api_url}}"],
+              "path": ["token", "refresh", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        pm.environment.set('access_token', response.data.access);",
+                  "        console.log('Token refreshed successfully');",
+                  "    } else {",
+                  "        console.log('Token refresh failed:', response.errorMessage);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/logout/",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "logout", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed) {",
+                  "        console.log('Logout successful - token blacklisted');",
+                  "        // Clear tokens from environment",
+                  "        pm.environment.unset('access_token');",
+                  "        pm.environment.unset('refresh_token');",
+                  "        console.log('Tokens cleared from environment');",
+                  "    } else {",
+                  "        console.log('Logout failed:', response.errorMessage);",
+                  "    }",
+                  "} else {",
+                  "    console.log('Logout request failed with status:', pm.response.code);",
+                  "    console.log('Response:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "User Management",
+      "item": [
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/users/me/",
+              "host": ["{{api_url}}"],
+              "path": ["users", "me", ""]
+            }
+          }
+        },
+        {
+          "name": "Get User List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/users/?search=test&page=1&page_size=10",
+              "host": ["{{api_url}}"],
+              "path": ["users", ""],
+              "query": [
+                { "key": "search", "value": "test" },
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contact_email\": \"updated@example.com\",\n  \"first_name\": \"张\",\n  \"last_name\": \"三\"\n  // display_name will be auto-generated as '张 三'\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/users/update_profile/",
+              "host": ["{{api_url}}"],
+              "path": ["users", "update_profile", ""]
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "exec": [
+                    "if (pm.response.code === 200) {",
+                    "    const response = pm.response.json();",
+                    "    if (response.succeed && response.data && response.data.user) {",
+                    "        console.log('Profile updated successfully');",
+                    "        console.log('Updated user info:', {",
+                    "            display_name: response.data.user.display_name,  // Should be '张 三'",
+                    "            contact_email: response.data.user.contact_email,",
+                    "            first_name: response.data.user.first_name,",
+                    "            last_name: response.data.user.last_name",
+                    "        });",
+                    "    } else {",
+                    "        console.log('Profile update failed:', response.errorMessage);",
+                    "    }",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"old_password\": \"password123\",\n  \"new_password\": \"newpassword123\",\n  \"new_password_confirm\": \"newpassword123\"\n}" },
+            "url": { "raw": "{{api_url}}/users/change_password/", "host": ["{{api_url}}"], "path": ["users", "change_password", ""] }
+          }
+        },
+        { "name": "Health Check", "request": { "method": "GET", "header": [], "url": { "raw": "{{api_url}}/health/", "host": ["{{api_url}}"], "path": ["health", ""] } } }
+      ]
+    },
+    {
+      "name": "Git Credentials",
+      "item": [
+        {
+          "name": "Get Git Providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/git-credentials/providers/",
+              "host": ["{{api_url}}"],
+              "path": ["git-credentials", "providers", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Git Credentials",
+          "request": {
+            "method": "GET", 
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/git-credentials/",
+              "host": ["{{api_url}}"],
+              "path": ["git-credentials", ""]
+            }
+          }
+        },
+        {
+          "name": "Create HTTPS Token Credential",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"credential_type\": \"https_token\",\n  \"provider\": \"github\",\n  \"token\": \"{{github_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/git-credentials/",
+              "host": ["{{api_url}}"],
+              "path": ["git-credentials", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        pm.environment.set('credential_id', response.data.id);",
+                  "        console.log('Git credential created successfully, ID:', response.data.id);",
+                  "    } else {",
+                  "        console.log('Git credential creation failed:', response.errorMessage);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create SSH Key Credential",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"credential_type\": \"ssh_key\",\n  \"provider\": \"github\",\n  \"private_key\": \"{{ssh_private_key}}\",\n  \"ssh_username\": \"git\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/git-credentials/",
+              "host": ["{{api_url}}"],
+              "path": ["git-credentials", ""]
+            }
+          }
+        },
+        {
+          "name": "Test Git Credential",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repo_url\": \"{{test_repo_url}}\",\n  \"provider\": \"github\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/git-credentials/test_credential/",
+              "host": ["{{api_url}}"],
+              "path": ["git-credentials", "test_credential", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete Git Credential",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/git-credentials/{{credential_id}}/",
+              "host": ["{{api_url}}"],
+              "path": ["git-credentials", "{{credential_id}}", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Project Management",
+      "item": [
+        { 
+          "name": "Get Project List", 
+          "request": { 
+            "method": "GET", 
+            "header": [], 
+            "url": { 
+              "raw": "{{api_url}}/projects/projects/?q=&repo_type=&role=&sort=-created_at&include_deleted=false&page=1&page_size=10", 
+              "host": ["{{api_url}}"], 
+              "path": ["projects", "projects", ""], 
+              "query": [ 
+                { "key": "q", "value": "", "description": "Search query (name, repo_url, description)" },
+                { "key": "repo_type", "value": "", "description": "Filter by repository type (github/gitlab/bitbucket/other)" },
+                { "key": "role", "value": "", "description": "Filter by user role: 'owner' (replaces my_projects) or 'member' (replaces joined_projects)" },
+                { "key": "sort", "value": "-created_at", "description": "Sort field (-created_at/name/repo_type)" },
+                { "key": "include_deleted", "value": "false", "description": "Include soft-deleted projects" },
+                { "key": "page", "value": "1" }, 
+                { "key": "page_size", "value": "10" } 
+              ] 
+            } 
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('Projects count:', response.data.count);",
+                  "        console.log('Projects:');",
+                  "        response.data.results.forEach(project => {",
+                  "            console.log(`- ${project.name}`);",
+                  "            console.log(`  ID: ${project.id}`);",
+                  "            console.log(`  Repo: ${project.repo_url} (${project.repo_type})`);",
+                  "            console.log(`  Risk Scores: STC=${project.stc_risk_score}, MC-STC=${project.mcstc_risk_score}`);",
+                  "            ",
+                  "            // Latest STC Result",
+                  "            if (project.latest_stc_result) {",
+                  "                const stc = project.latest_stc_result;",
+                  "                console.log(`  Latest STC: ${stc.stc_value} (${stc.analysis_date})`);",
+                  "                console.log(`    Branch: ${stc.branch_analyzed}, Contributors: ${stc.contributors_count}`);",
+                  "                console.log(`    Coordination Efficiency: ${(stc.coordination_efficiency * 100).toFixed(1)}%`);",
+                  "            } else {",
+                  "                console.log(`  Latest STC: No analysis available`);",
+                  "            }",
+                  "            ",
+                  "            // Latest MC-STC Result",
+                  "            if (project.latest_mcstc_result) {",
+                  "                const mcstc = project.latest_mcstc_result;",
+                  "                console.log(`  Latest MC-STC: ${mcstc.mcstc_value} (${mcstc.analysis_date})`);",
+                  "                console.log(`    Branch: ${mcstc.branch_analyzed}, Contributors: ${mcstc.total_contributors_analyzed}`);",
+                  "                console.log(`    Team: Dev=${mcstc.developer_count}, Sec=${mcstc.security_count}, Ops=${mcstc.ops_count}`);",
+                  "                console.log(`    Inter-class: ${mcstc.inter_class_coordination_score}, Intra-class: ${mcstc.intra_class_coordination_score}`);",
+                  "            } else {",
+                  "                console.log(`  Latest MC-STC: No analysis available`);",
+                  "            }",
+                  "            ",
+                  "            console.log(`  Deleted: ${project.is_deleted}`);",
+                  "            console.log('---');",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        { 
+          "name": "Validate Repository", 
+          "request": { 
+            "method": "POST", 
+            "header": [ { "key": "Content-Type", "value": "application/json" } ], 
+            "body": { "mode": "raw", "raw": "{\n  \"repo_url\": \"{{test_repo_url}}\"\n}" }, 
+            "url": { "raw": "{{api_url}}/projects/projects/validate_repository/", "host": ["{{api_url}}"], "path": ["projects", "projects", "validate_repository", ""] } 
+          } 
+        },
+        { 
+          "name": "Create Project", 
+          "request": { 
+            "method": "POST", 
+            "header": [ { "key": "Content-Type", "value": "application/json" } ], 
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test Project\",\n  \"description\": \"A test project for API validation\",\n  \"repo_url\": \"{{test_repo_url}}\",\n  \"repo_type\": \"github\"\n}" }, 
+            "url": { "raw": "{{api_url}}/projects/projects/", "host": ["{{api_url}}"], "path": ["projects", "projects", ""] }, 
+            "event": [ 
+              { 
+                "listen": "test", 
+                "script": { 
+                  "exec": [ 
+                    "if (pm.response.code === 201) {", 
+                    "    const response = pm.response.json();", 
+                    "    if (response.succeed && response.data) {", 
+                    "        pm.environment.set('project_id', response.data.id);", 
+                    "        console.log('Project created, ID saved:', response.data.id);", 
+                    "        console.log('Repository info:', response.data.repository_info);", 
+                    "    } else {", 
+                    "        console.log('Project creation failed:', response.errorMessage);", 
+                    "    }", 
+                    "}" 
+                  ] 
+                } 
+              } 
+            ] 
+          } 
+        },
+        {
+          "name": "Get Project Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/projects/projects/{{project_id}}/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "{{project_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Project Name\",\n  \"description\": \"Updated project description\",\n  \"default_branch\": \"develop\",\n  \"repo_type\": \"github\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/projects/projects/{{project_id}}/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "{{project_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Get My Projects (use role=owner)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/projects/projects/?role=owner&page=1&page_size=10",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", ""],
+              "query": [
+                { "key": "role", "value": "owner" },
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "10" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('My projects count:', response.data.count);",
+                  "        console.log('Owned projects:');",
+                  "        response.data.results.forEach(project => {",
+                  "            console.log(`- ${project.name} (${project.id}): ${project.repo_url} (${project.repo_type})`);",
+                  "            console.log(`  Risk Scores: STC=${project.stc_risk_score}, MC-STC=${project.mcstc_risk_score}`);",
+                  "        });",
+                  "        if (response.data.results.length > 0) {",
+                  "            pm.environment.set('project_id', response.data.results[0].id);",
+                  "            console.log('Auto-selected first project:', response.data.results[0].id);",
+                  "        }",
+                  "    } else {",
+                  "        console.log('Failed to get my projects:', response.errorMessage);",
+                  "    }",
+                  "} else {",
+                  "    console.log('Request failed with status:', pm.response.code);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Joined Projects (use role=member)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/projects/projects/?role=member&page=1&page_size=10",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", ""],
+              "query": [
+                { "key": "role", "value": "member" },
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "10" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('Joined projects count:', response.data.count);",
+                  "        console.log('Projects I participate in:');",
+                  "        response.data.results.forEach(project => {",
+                  "            console.log(`- ${project.name} (${project.id}): ${project.repo_url} (${project.repo_type}) [Role: ${project.my_role}]`);",
+                  "            console.log(`  Risk Scores: STC=${project.stc_risk_score}, MC-STC=${project.mcstc_risk_score}`);",
+                  "        });",
+                  "    } else {",
+                  "        console.log('Failed to get joined projects:', response.errorMessage);",
+                  "    }",
+                  "} else {",
+                  "    console.log('Request failed with status:', pm.response.code);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Selectable Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/projects/projects/selectable_projects/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "selectable_projects", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('Selectable projects count:', response.data.count);",
+                  "        console.log('Available projects for TNM analysis:');",
+                  "        // Handle both paginated (results) and non-paginated (projects) responses",
+                  "        const projects = response.data.results || response.data.projects || [];",
+                  "        projects.forEach(project => {",
+                  "            console.log(`- ID: ${project.id}, Name: ${project.name}, Repo: ${project.repo_url} (${project.repo_type})`);",
+                  "            console.log(`  Risk Scores: STC=${project.stc_risk_score}, MC-STC=${project.mcstc_risk_score}`);",
+                  "        });",
+                  "        if (projects.length > 0) {",
+                  "            pm.environment.set('project_id', projects[0].id);",
+                  "            console.log('Auto-selected project ID:', projects[0].id);",
+                  "        }",
+                  "    } else {",
+                  "        console.log('Failed to get selectable projects:', response.errorMessage);",
+                  "    }",
+                  "} else {",
+                  "    console.log('Request failed with status:', pm.response.code);",
+                  "    console.log('Response:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Select Project (persist)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_uid\": \"{{project_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/projects/projects/select_project/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "select_project", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Project Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/projects/projects/stats/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "stats", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Project Branches",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/projects/projects/{{project_id}}/branches/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "{{project_id}}", "branches", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('Available branches:', response.data.branches.map(b => ({ name: b.name, id: b.branch_id, commit: b.commit_hash, current: b.is_current })));",
+                  "        console.log('Current branch:', response.data.current_branch);",
+                  "        if (response.data.branches && response.data.branches.length > 0) {",
+                  "            // Prefer current branch, fallback to first branch",
+                  "            let selectedBranch = response.data.branches.find(b => b.is_current) || response.data.branches[0];",
+                  "            pm.environment.set('selected_branch', selectedBranch.name);",
+                  "            pm.environment.set('selected_branch_id', selectedBranch.branch_id);",
+                  "            console.log('Auto-selected branch for TNM analysis:', selectedBranch.name, 'ID:', selectedBranch.branch_id, selectedBranch.is_current ? '(current)' : '(first available)');",
+                  "        }",
+                  "    } else {",
+                  "        console.log('Failed to get project branches:', response.errorMessage);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Switch Project Branch",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch_id\": \"{{selected_branch_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/projects/projects/{{project_id}}/switch_branch/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "{{project_id}}", "switch_branch", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('Branch switched successfully to:', response.data.current_branch);",
+                  "        pm.environment.set('selected_branch', response.data.current_branch);",
+                  "        console.log('Updated selected_branch for TNM analysis');",
+                  "    } else {",
+                  "        console.log('Branch switch failed:', response.errorMessage);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retry Repository Access",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/projects/projects/{{project_id}}/retry_repository_access/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "{{project_id}}", "retry_repository_access", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('Repository access retry successful');",
+                  "        console.log('Status:', response.data.status);",
+                  "        console.log('Action:', response.data.action);",
+                  "        if (response.data.repository_info) {",
+                  "            console.log('Current branch:', response.data.repository_info.current_branch);",
+                  "            console.log('Used authentication:', response.data.repository_info.used_authentication);",
+                  "        }",
+                  "    } else {",
+                  "        console.log('Repository access retry failed:', response.errorMessage);",
+                  "    }",
+                  "} else {",
+                  "    console.log('Repository access retry failed with status:', pm.response.code);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/projects/projects/{{project_id}}/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "{{project_id}}", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Project Members",
+      "item": [
+        {
+          "name": "Get Project Members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/projects/projects/{{project_id}}/members/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "{{project_id}}", "members", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Project Roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/projects/projects/roles/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "roles", ""]
+            }
+          }
+        },
+        {
+          "name": "Add Project Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"role_id\": 3\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/projects/projects/{{project_id}}/add_member/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "{{project_id}}", "add_member", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed) {",
+                  "        console.log('Member added successfully');",
+                  "    } else {",
+                  "        console.log('Member addition failed:', response.errorMessage);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Member Role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"reviewer\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/projects/projects/{{project_id}}/members/by-user/{{user_id}}/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "{{project_id}}", "members", "by-user", "{{user_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Remove Project Member",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/projects/projects/{{project_id}}/members/by-user/{{user_id}}/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "{{project_id}}", "members", "by-user", "{{user_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Get All Members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/projects/members/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "members", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "TNM Data Extraction (STC-focused)",
+      "item": [
+        {
+          "name": "Extract Coordination Minimal Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data_type\": \"coordination_minimal\",\n  \"safe_mode\": {{tnm_safe_mode}}\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/tnm/run/",
+              "host": ["{{api_url}}"],
+              "path": ["tnm", "run", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('Essential data extraction completed');",
+                  "        console.log('Data type:', response.data.data_type);",
+                  "        console.log('Essential data extracted:', response.data.essential_data_extracted);",
+                  "        if (response.data.runs) {",
+                  "            console.log('Extraction runs:');",
+                  "            response.data.runs.forEach((run, idx) => {",
+                  "                console.log(`#${idx+1} ${run.data_type}: rc=${run.returncode}`);",
+                  "            });",
+                  "        }",
+                  "    } else {",
+                  "        console.log('Data extraction failed:', response.errorMessage);",
+                  "    }",
+                  "} else {",
+                  "    console.log('Data extraction failed:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extract Assignment Matrix Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data_type\": \"assignment_matrix\",\n  \"safe_mode\": {{tnm_safe_mode}}\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/tnm/run/",
+              "host": ["{{api_url}}"],
+              "path": ["tnm", "run", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('Assignment Matrix extraction completed');",
+                  "        console.log('Data type:', response.data.data_type);",
+                  "        console.log('Return code:', response.data.returncode);",
+                  "    } else {",
+                  "        console.log('Assignment Matrix extraction failed:', response.errorMessage);",
+                  "    }",
+                  "} else {",
+                  "    console.log('Request failed:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extract File Dependency Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data_type\": \"file_dependency\",\n  \"safe_mode\": {{tnm_safe_mode}}\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/tnm/run/",
+              "host": ["{{api_url}}"],
+              "path": ["tnm", "run", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('File Dependency extraction completed');",
+                  "        console.log('Data type:', response.data.data_type);",
+                  "        console.log('Return code:', response.data.returncode);",
+                  "    } else {",
+                  "        console.log('File Dependency extraction failed:', response.errorMessage);",
+                  "    }",
+                  "} else {",
+                  "    console.log('Request failed:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "STC Analysis",
+      "item": [
+        {
+          "name": "Create STC Analysis",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project\": \"{{project_id}}\",\n  \"use_monte_carlo\": false,\n  \"monte_carlo_iterations\": 1000\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/stc/analyses/",
+              "host": ["{{api_url}}"],
+              "path": ["stc", "analyses", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        pm.environment.set('analysis_id', response.data.id);",
+                  "        console.log('STC Analysis created, ID:', response.data.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List STC Analyses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/stc/analyses/?project_id={{project_id}}&page=1",
+              "host": ["{{api_url}}"],
+              "path": ["stc", "analyses", ""],
+              "query": [
+                { "key": "project_id", "value": "{{project_id}}" },
+                { "key": "is_completed", "value": "true", "disabled": true },
+                { "key": "page", "value": "1" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Analysis Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/stc/analyses/{{analysis_id}}/",
+              "host": ["{{api_url}}"],
+              "path": ["stc", "analyses", "{{analysis_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Start STC Analysis",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch\": \"{{selected_branch}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/stc/analyses/{{analysis_id}}/start_analysis/",
+              "host": ["{{api_url}}"],
+              "path": ["stc", "analyses", "{{analysis_id}}", "start_analysis", ""]
+            }
+          }
+        },
+        {
+          "name": "Get STC Results",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/stc/analyses/{{analysis_id}}/results/?top_n=10",
+              "host": ["{{api_url}}"],
+              "path": ["stc", "analyses", "{{analysis_id}}", "results", ""],
+              "query": [
+                { "key": "top_n", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Project STC Comparison",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/stc/projects/{{project_id}}/comparison/?top_n=20",
+              "host": ["{{api_url}}"],
+              "path": ["stc", "projects", "{{project_id}}", "comparison", ""],
+              "query": [
+                { "key": "analysis_id", "value": "{{analysis_id}}", "disabled": true },
+                { "key": "role", "value": "coder", "disabled": true },
+                { "key": "top_n", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update STC Analysis",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"use_monte_carlo\": true,\n  \"monte_carlo_iterations\": 2000\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/stc/analyses/{{analysis_id}}/",
+              "host": ["{{api_url}}"],
+              "path": ["stc", "analyses", "{{analysis_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete STC Analysis",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/stc/analyses/{{analysis_id}}/",
+              "host": ["{{api_url}}"],
+              "path": ["stc", "analyses", "{{analysis_id}}", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "MC-STC Analysis",
+      "description": "Multi-Class Socio-Technical Congruence analysis endpoints for measuring coordination between different functional roles (developers, security, ops)",
+      "item": [
+        {
+          "name": "Create MC-STC Analysis",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project\": \"{{project_id}}\",\n  \"monte_carlo_iterations\": 1000,\n  \"functional_roles_used\": [\"developer\", \"security\", \"ops\"]\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/mcstc/analyses/",
+              "host": ["{{api_url}}"],
+              "path": ["mcstc", "analyses", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        pm.environment.set('mcstc_analysis_id', response.data.id);",
+                  "        console.log('MC-STC Analysis created, ID:', response.data.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List MC-STC Analyses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/mcstc/analyses/?project_id={{project_id}}&is_completed=true&page=1",
+              "host": ["{{api_url}}"],
+              "path": ["mcstc", "analyses", ""],
+              "query": [
+                { "key": "project_id", "value": "{{project_id}}" },
+                { "key": "is_completed", "value": "true", "disabled": true },
+                { "key": "roles", "value": "developer,security", "disabled": true, "description": "Filter by functional roles" },
+                { "key": "page", "value": "1" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Start MC-STC Analysis",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch\": \"{{selected_branch}}\"\n  // optional: \"tnm_output_dir\": \"/app/tnm_output/project_{{project_id}}_{{selected_branch}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/mcstc/analyses/{{mcstc_analysis_id}}/start_analysis/",
+              "host": ["{{api_url}}"],
+              "path": ["mcstc", "analyses", "{{mcstc_analysis_id}}", "start_analysis", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('MC-STC Analysis completed:');",
+                  "        console.log('MC-STC Value:', response.data.mcstc_value);",
+                  "        console.log('Analysis Status:', response.data.status);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get MC-STC Results",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/mcstc/analyses/{{mcstc_analysis_id}}/results/?top_n=20&role_filter=developer",
+              "host": ["{{api_url}}"],
+              "path": ["mcstc", "analyses", "{{mcstc_analysis_id}}", "results", ""],
+              "query": [
+                { "key": "top_n", "value": "20", "description": "Number of top coordination pairs" },
+                { "key": "role_filter", "value": "developer", "disabled": true, "description": "Filter by role (developer/security/ops)" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get MC-STC Project Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/mcstc/analyses/project_stats/",
+              "host": ["{{api_url}}"],
+              "path": ["mcstc", "analyses", "project_stats", ""]
+            }
+          }
+        },
+        {
+          "name": "Get MC-STC Project Comparison",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/mcstc/projects/{{project_id}}/comparison/?role_focus=security",
+              "host": ["{{api_url}}"],
+              "path": ["mcstc", "projects", "{{project_id}}", "comparison", ""],
+              "query": [
+                { "key": "analysis_id", "value": "{{mcstc_analysis_id}}", "disabled": true, "description": "Specific analysis ID (optional)" },
+                { "key": "role_focus", "value": "security", "disabled": true, "description": "Focus on specific role coordination" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Coordination Pairs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/mcstc/analyses/{{mcstc_analysis_id}}/coordination_pairs/?top_n=50&inter_class_only=true",
+              "host": ["{{api_url}}"],
+              "path": ["mcstc", "analyses", "{{mcstc_analysis_id}}", "coordination_pairs", ""],
+              "query": [
+                { "key": "top_n", "value": "50", "description": "Number of pairs to return" },
+                { "key": "role_filter", "value": "security", "disabled": true, "description": "Filter by role" },
+                { "key": "status_filter", "value": "missed", "disabled": true, "description": "missed/unnecessary/adequate" },
+                { "key": "inter_class_only", "value": "true", "disabled": true, "description": "Show only inter-class coordination" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get MC-STC Analysis Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/mcstc/analyses/{{mcstc_analysis_id}}/",
+              "host": ["{{api_url}}"],
+              "path": ["mcstc", "analyses", "{{mcstc_analysis_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Update MC-STC Analysis",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monte_carlo_iterations\": 2000,\n  \"functional_roles_used\": [\"developer\", \"security\", \"ops\"]\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/mcstc/analyses/{{mcstc_analysis_id}}/",
+              "host": ["{{api_url}}"],
+              "path": ["mcstc", "analyses", "{{mcstc_analysis_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete MC-STC Analysis",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/mcstc/analyses/{{mcstc_analysis_id}}/",
+              "host": ["{{api_url}}"],
+              "path": ["mcstc", "analyses", "{{mcstc_analysis_id}}", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contributors Analysis",
+      "item": [
+        {
+          "name": "Get Project Contributors",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/contributors/project-contributors/?project_id={{project_id}}&page=1&page_size=20",
+              "host": ["{{api_url}}"],
+              "path": ["contributors", "project-contributors", ""],
+              "query": [
+                { "key": "project_id", "value": "{{project_id}}" },
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Analyze TNM Contributors",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch\": \"{{selected_branch}}\",\n  \"async\": true\n  // For large projects (>50 contributors), async is automatically enabled\n  // Set \"async\": false to force synchronous analysis for small projects\n  // optional: \n  // \"tnm_output_dir\": \"/app/tnm_output/project_{{project_id}}_{{selected_branch}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/contributors/projects/{{project_id}}/analyze_tnm/",
+              "host": ["{{api_url}}"],
+              "path": ["contributors", "projects", "{{project_id}}", "analyze_tnm", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('TNM Contributors Analysis Response:', JSON.stringify(response, null, 2));",
+                  "    ",
+                  "    if (response.succeed && response.data) {",
+                  "        // Check if this is an async task response",
+                  "        if (response.data.task_id) {",
+                  "            pm.environment.set('analysis_task_id', response.data.task_id);",
+                  "            console.log('Async analysis started. Task ID saved:', response.data.task_id);",
+                  "            console.log('Use \"Get Analysis Task Status\" to check progress');",
+                  "        } else {",
+                  "            // Synchronous analysis completed",
+                  "            console.log('Synchronous analysis completed');",
+                  "            console.log('Contributors processed:', response.data.total_contributors);",
+                  "        }",
+                  "    }",
+                  "} else {",
+                  "    console.log('TNM Contributors Analysis failed:', pm.response.text());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Contributor Classification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/contributors/projects/{{project_id}}/classification/",
+              "host": ["{{api_url}}"],
+              "path": ["contributors", "projects", "{{project_id}}", "classification", ""]
+            }
+          }
+        },
+        {
+          "name": "Update Contributor Classification",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  { \n    \"id\": 1,\n    \"functional_role\": \"developer\",\n    \"is_core_contributor\": true\n  },\n  { \n    \"id\": 2,\n    \"functional_role\": \"security\",\n    \"is_core_contributor\": false\n  }\n]"
+            },
+            "url": {
+              "raw": "{{api_url}}/contributors/projects/{{project_id}}/classification/",
+              "host": ["{{api_url}}"],
+              "path": ["contributors", "projects", "{{project_id}}", "classification", ""]
+            }
+          }
+        },
+        {
+          "name": "Project Contributor Analysis",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/contributors/projects/{{project_id}}/analysis/",
+              "host": ["{{api_url}}"],
+              "path": ["contributors", "projects", "{{project_id}}", "analysis", ""]
+            }
+          }
+        },
+        {
+          "name": "Functional Role Choices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/contributors/functional-role-choices/",
+              "host": ["{{api_url}}"],
+              "path": ["contributors", "functional-role-choices", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Analysis Task Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/contributors/tasks/{{analysis_task_id}}/status/",
+              "host": ["{{api_url}}"],
+              "path": ["contributors", "tasks", "{{analysis_task_id}}", "status", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('Task Status Response:', JSON.stringify(response, null, 2));",
+                  "    ",
+                  "    if (response.succeed && response.data) {",
+                  "        const task = response.data;",
+                  "        console.log(`Task ${task.task_id} status: ${task.status} (${task.progress}%)`);",
+                  "        ",
+                  "        if (task.status === 'completed') {",
+                  "            console.log('Analysis completed successfully!');",
+                  "            if (task.result) {",
+                  "                console.log('Contributors processed:', task.result.total_contributors);",
+                  "            }",
+                  "        } else if (task.status === 'failed') {",
+                  "            console.log('Analysis failed:', task.error);",
+                  "        } else if (task.status === 'running') {",
+                  "            console.log('Analysis in progress...');",
+                  "        }",
+                  "    }",
+                  "} else {",
+                  "    console.log('Failed to get task status:', pm.response.text());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Analysis Tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/contributors/tasks/?project_id={{project_id}}&status=completed",
+              "host": ["{{api_url}}"],
+              "path": ["contributors", "tasks", ""],
+              "query": [
+                { "key": "project_id", "value": "{{project_id}}" },
+                { "key": "status", "value": "completed" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('Tasks List Response:', JSON.stringify(response, null, 2));",
+                  "    ",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log(`Found ${response.data.count} tasks`);",
+                  "        response.data.tasks.forEach(task => {",
+                  "            console.log(`- Task ${task.task_id}: ${task.status} (${task.type})`);",
+                  "        });",
+                  "    }",
+                  "} else {",
+                  "    console.log('Failed to get tasks list:', pm.response.text());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Project Monitoring",
+      "item": [
+        {
+          "name": "List Monitoring Records",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/project-monitoring/monitoring/?project_id={{project_id}}&page=1&page_size=10",
+              "host": ["{{api_url}}"],
+              "path": ["project-monitoring", "monitoring", ""],
+              "query": [
+                { "key": "project_id", "value": "{{project_id}}" },
+                { "key": "analysis_type", "value": "stc", "disabled": true },
+                { "key": "status", "value": "completed", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "10" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('Monitoring records count:', response.data.count);",
+                  "        if (response.data.results.length > 0) {",
+                  "            pm.environment.set('monitoring_id', response.data.results[0].id);",
+                  "        }",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Monitoring Analysis",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": \"{{project_id}}\",\n  \"analysis_type\": \"stc\",\n  \"branch\": \"{{selected_branch}}\",\n  \"force_rerun\": false\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/project-monitoring/create-analysis/",
+              "host": ["{{api_url}}"],
+              "path": ["project-monitoring", "create-analysis", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        pm.environment.set('monitoring_id', response.data.id);",
+                  "        console.log('Monitoring analysis created, ID:', response.data.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Top Coordination Pairs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/project-monitoring/monitoring/top_coordination_pairs/?project_id={{project_id}}&top_n=10",
+              "host": ["{{api_url}}"],
+              "path": ["project-monitoring", "monitoring", "top_coordination_pairs", ""],
+              "query": [
+                { "key": "project_id", "value": "{{project_id}}" },
+                { "key": "top_n", "value": "10" },
+                { "key": "role_filter", "value": "security", "disabled": true },
+                { "key": "status_filter", "value": "missed", "disabled": true },
+                { "key": "inter_class_only", "value": "true", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Project History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/project-monitoring/monitoring/project_history/?project_id={{project_id}}&limit=20",
+              "host": ["{{api_url}}"],
+              "path": ["project-monitoring", "monitoring", "project_history", ""],
+              "query": [
+                { "key": "project_id", "value": "{{project_id}}" },
+                { "key": "analysis_type", "value": "mc_stc", "disabled": true },
+                { "key": "date_from", "value": "2024-01-01T00:00:00Z", "disabled": true },
+                { "key": "date_to", "value": "2024-12-31T23:59:59Z", "disabled": true },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('Project History Retrieved:');",
+                  "        console.log('- Project:', response.data.project_name);",
+                  "        console.log('- Total Analyses:', response.data.total_analyses);",
+                  "        console.log('- Completed Analyses:', response.data.completed_analyses);",
+                  "        console.log('- Average STC:', response.data.average_stc_value);",
+                  "        console.log('- Average Risk:', response.data.average_risk_score);",
+                  "        console.log('- Analysis Records:', response.data.analyses.length);",
+                  "    }",
+                  "} else {",
+                  "    console.log('Failed to get project history:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Trend Analysis",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/project-monitoring/monitoring/trend_analysis/?project_id={{project_id}}&period=30d&metric=stc_value",
+              "host": ["{{api_url}}"],
+              "path": ["project-monitoring", "monitoring", "trend_analysis", ""],
+              "query": [
+                { "key": "project_id", "value": "{{project_id}}" },
+                { "key": "analysis_type", "value": "mc_stc", "disabled": true },
+                { "key": "period", "value": "30d", "description": "7d, 30d, 90d, 1y" },
+                { "key": "metric", "value": "stc_value", "description": "stc_value, risk_score, coordination_efficiency" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('Trend Analysis Retrieved:');",
+                  "        console.log('- Project:', response.data.project_name);",
+                  "        console.log('- Analysis Type:', response.data.analysis_type);",
+                  "        console.log('- Metric:', response.data.metric);",
+                  "        console.log('- Period:', response.data.period);",
+                  "        console.log('- Data Points:', response.data.data_points);",
+                  "        console.log('- Trend Direction:', response.data.statistics.trend_direction);",
+                  "        console.log('- Average Value:', response.data.statistics.average);",
+                  "        console.log('- Min/Max:', response.data.statistics.minimum, '/', response.data.statistics.maximum);",
+                  "    }",
+                  "} else {",
+                  "    console.log('Failed to get trend analysis:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TNM Data Cleanup",
+      "item": [
+        {
+          "name": "Manual Project Cleanup",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cleanup_type\": \"{{cleanup_type}}\",\n  \"confirm\": {{cleanup_confirm}},\n  \"older_than_days\": {{older_than_days}}\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/projects/projects/{{project_id}}/cleanup-tnm/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "projects", "{{project_id}}", "cleanup-tnm", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.succeed && response.data) {",
+                  "        console.log('Project cleanup completed:');",
+                  "        console.log('- Files removed:', response.data.files_removed);",
+                  "        console.log('- Size freed (MB):', response.data.total_size_freed_mb);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Global TNM Cleanup (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cleanup_type\": \"output\",\n  \"confirm\": true,\n  \"older_than_days\": 30\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/projects/cleanup-tnm-data/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "cleanup-tnm-data", ""]
+            }
+          }
+        },
+        {
+          "name": "Auto Cleanup (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dry_run\": true,\n  \"output_retention_days\": 30,\n  \"repository_retention_days\": 7,\n  \"max_total_size_gb\": 10\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/projects/auto-cleanup-tnm/",
+              "host": ["{{api_url}}"],
+              "path": ["projects", "auto-cleanup-tnm", ""]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
