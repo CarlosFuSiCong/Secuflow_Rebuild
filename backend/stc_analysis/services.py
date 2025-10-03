@@ -34,12 +34,18 @@ class STCService:
         return cr_matrix
         
     def calculate_kirchhoff_matrix(self, adjacency_matrix: np.ndarray) -> np.ndarray:
-        """Calculate Kirchhoff matrix (Laplacian matrix)
+        """Calculate Kirchhoff matrix (Laplacian matrix) from CR matrix
         
         The Kirchhoff matrix (also known as Laplacian matrix) is calculated as:
         L = D - A, where:
         - D is the degree matrix (diagonal matrix with vertex degrees)
-        - A is the adjacency matrix
+        - A is the adjacency matrix (CR matrix in STC context - collaboration network)
+        
+        Args:
+            adjacency_matrix: CR matrix representing developer collaboration network
+        
+        Returns:
+            Kirchhoff (Laplacian) matrix
         """
         # Calculate degree matrix (sum of each row)
         degrees = np.sum(adjacency_matrix, axis=1)
@@ -68,7 +74,15 @@ class STCService:
     
     def calculate_edge_participation(self, adjacency_matrix: np.ndarray, 
                                    kirchhoff_matrix: np.ndarray) -> np.ndarray:
-        """Calculate the participation of each edge in spanning trees"""
+        """Calculate the participation of each edge in spanning trees
+        
+        Args:
+            adjacency_matrix: CR matrix (collaboration network adjacency matrix)
+            kirchhoff_matrix: Kirchhoff (Laplacian) matrix
+        
+        Returns:
+            Edge participation matrix
+        """
         n = len(adjacency_matrix)
         edge_participation = np.zeros_like(adjacency_matrix, dtype=float)
         

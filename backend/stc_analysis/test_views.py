@@ -217,10 +217,15 @@ class STCAnalysisStartTest(TestCase):
         tnm_dir = os.path.join(self.temp_dir, f'project_{self.project.id}_main')
         os.makedirs(tnm_dir, exist_ok=True)
         
-        # Create assignment matrix
-        assignment_matrix = [[0, 1, 1], [1, 0, 1], [1, 1, 0]]
+        # Create CA matrix (Contribution Assignment: 3 developers × 4 files)
+        # This is what TNM actually outputs - developers' contributions to files
+        ca_matrix = [
+            [5, 3, 0, 2],  # Developer 0's contributions to files 0-3
+            [2, 4, 3, 0],  # Developer 1's contributions to files 0-3
+            [0, 1, 5, 4]   # Developer 2's contributions to files 0-3
+        ]
         with open(os.path.join(tnm_dir, 'AssignmentMatrix.json'), 'w') as f:
-            json.dump(assignment_matrix, f)
+            json.dump(ca_matrix, f)
         
         # Create user mapping
         user_mapping = {'0': 'user1', '1': 'user2', '2': 'user3'}
