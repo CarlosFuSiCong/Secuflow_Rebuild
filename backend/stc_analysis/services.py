@@ -326,3 +326,80 @@ class MCSTCService(STCService):
             missed_coordination[dev_id] = missed_count
         
         return missed_coordination
+    
+    def get_top_coordination_pairs(
+        self,
+        cr_matrix: np.ndarray,
+        ca_matrix: np.ndarray,
+        all_users: List[str],
+        security_users: Set[str],
+        developer_users: Set[str],
+        id_to_user: Dict[str, str] = None,
+        top_n: int = 10
+    ) -> List[Dict[str, any]]:
+        """
+        Get top N coordination pairs with highest impact on MC-STC.
+        
+        Impact is calculated as the coordination requirement strength between
+        developer-security pairs, prioritizing missed coordination.
+        
+        Args:
+            cr_matrix: Coordination Requirements matrix
+            ca_matrix: Coordination Actuals matrix  
+            all_users: List of all user IDs
+            security_users: Set of security user IDs
+            developer_users: Set of developer user IDs
+            id_to_user: Optional mapping from user ID to user info
+            top_n: Number of top pairs to return
+            
+        Returns:
+            List of coordination pairs with impact metrics
+        """
+        user_indices = {user_id: idx for idx, user_id in enumerate(all_users)}
+        coordination_pairs = []
+        
+        for dev_id in developer_users:
+            if dev_id not in user_indices:
+                continue
+            dev_idx = user_indices[dev_id]
+            
+            for sec_id in security_users:
+                if sec_id not in user_indices:
+                    continue
+                sec_idx = user_indices[sec_id]
+                
+                # Get coordination requirements and actuals
+                required_coord = cr_matrix[dev_idx, sec_idx]
+                actual_coord = ca_matrix[dev_idx, sec_idx]
+                
+                # Skip pairs with no coordination requirement
+                if required_coord == 0:
+                    continue
+                
+                # Calculate impact metrics
+                is_missed = required_coord > 0 and actual_coord == 0
+                coordination_gap = max(0, required_coord - actual_coord)
+                
+                # Impact score: prioritize missed coordination, then coordination gap
+                impact_score = required_coord * 2 if is_missed else required_coord - coordination_gap
+                
+                # Get user information
+                dev_info = id_to_user.get(dev_id, dev_id) if id_to_user else dev_id
+                sec_info = id_to_user.get(sec_id, sec_id) if id_to_user else sec_id
+                
+                coordination_pairs.append({
+                    'developer_id': dev_id,
+                    'developer_info': dev_info,
+                    'security_id': sec_id,
+                    'security_info': sec_info,
+                    'required_coordination': float(required_coord),
+                    'actual_coordination': float(actual_coord),
+                    'coordination_gap': float(coordination_gap),
+                    'is_missed_coordination': is_missed,
+                    'impact_score': float(impact_score),
+                    'pair_name': f"{dev_info} ↔ {sec_info}"
+                })
+        
+        # Sort by impact score (descending) and return top N
+        coordination_pairs.sort(key=lambda x: x['impact_score'], reverse=True)
+        return coordination_pairs[:top_n]

@@ -357,12 +357,30 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
             for i, user_id in enumerate(all_users):
                 missed_counts[user_id] = int(np.sum(missed_coord[i, :]))
             
+            # Calculate top coordination pairs for MC-STC
+            top_coordination_pairs = []
+            if analysis.use_monte_carlo and security_users and developer_users:
+                try:
+                    top_coordination_pairs = service.get_top_coordination_pairs(
+                        cr_matrix, ca_matrix, all_users,
+                        security_users, developer_users,
+                        id_to_user, top_n=10
+                    )
+                    logger.info(f"Calculated {len(top_coordination_pairs)} top coordination pairs", extra={
+                        'analysis_id': analysis.id
+                    })
+                except Exception as e:
+                    logger.error(f"Failed to calculate top coordination pairs: {e}", extra={
+                        'analysis_id': analysis.id
+                    })
+            
             # Prepare results with contributor info
             results_data = {
                 'stc_value': float(stc_value),
                 'total_required_edges': int(np.sum(cr_matrix > 0) / 2),
                 'total_actual_edges': int(np.sum(ca_matrix > 0) / 2),
                 'satisfied_edges': int(np.sum((cr_matrix > 0) & (ca_matrix > 0)) / 2),
+                'top_coordination_pairs': top_coordination_pairs,
                 'developers': []
             }
             
