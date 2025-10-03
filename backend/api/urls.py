@@ -10,6 +10,7 @@ urlpatterns = [
     
     # Analysis modules
     path('contributors/', include('contributors.urls')),
+    path('stc/', include('stc_analysis.urls')),
 ]
 
 

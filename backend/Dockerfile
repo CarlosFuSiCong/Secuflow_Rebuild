@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y \
     gcc \
     default-libmysqlclient-dev \
     pkg-config \
+    python3-dev \
+    libblas-dev \
+    liblapack-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file
@@ -25,6 +28,8 @@ RUN apt-get update && apt-get install -y \
     default-libmysqlclient-dev \
     git \
     openssh-client \
+    libblas3 \
+    liblapack3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Temurin JRE 11 (Adoptium)
