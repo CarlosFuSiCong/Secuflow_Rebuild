@@ -1,0 +1,255 @@
+{
+  "info": {
+    "name": "STC Analysis API",
+    "description": "API collection for Spanning Tree Centrality (STC) analysis endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Create STC Analysis",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"project\": \"{{project_id}}\",\n  \"use_monte_carlo\": false,\n  \"monte_carlo_iterations\": 1000\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/stc/analyses/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "stc", "analyses", ""]
+        },
+        "description": "Create a new STC analysis for a project"
+      }
+    },
+    {
+      "name": "2. List All Analyses",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/stc/analyses/?project_id={{project_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "stc", "analyses", ""],
+          "query": [
+            {
+              "key": "project_id",
+              "value": "{{project_id}}",
+              "description": "Filter by project ID"
+            },
+            {
+              "key": "is_completed",
+              "value": "true",
+              "disabled": true,
+              "description": "Filter by completion status"
+            },
+            {
+              "key": "page",
+              "value": "1",
+              "disabled": true
+            }
+          ]
+        },
+        "description": "Get list of all STC analyses with optional filters"
+      }
+    },
+    {
+      "name": "3. Get Analysis Details",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/stc/analyses/{{analysis_id}}/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "stc", "analyses", "{{analysis_id}}", ""]
+        },
+        "description": "Get details of a specific STC analysis"
+      }
+    },
+    {
+      "name": "4. Start Analysis",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"branch\": \"main\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/stc/analyses/{{analysis_id}}/start_analysis/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "stc", "analyses", "{{analysis_id}}", "start_analysis", ""]
+        },
+        "description": "Start STC calculation for an analysis. Requires TNM output to be available."
+      }
+    },
+    {
+      "name": "5. Get Analysis Results",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/stc/analyses/{{analysis_id}}/results/?top_n=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "stc", "analyses", "{{analysis_id}}", "results", ""],
+          "query": [
+            {
+              "key": "top_n",
+              "value": "10",
+              "description": "Return only top N contributors"
+            }
+          ]
+        },
+        "description": "Get STC analysis results with contributor rankings"
+      }
+    },
+    {
+      "name": "6. Project STC Comparison",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/stc/projects/{{project_id}}/comparison/?top_n=20",
+          "host": ["{{base_url}}"],
+          "path": ["api", "stc", "projects", "{{project_id}}", "comparison", ""],
+          "query": [
+            {
+              "key": "analysis_id",
+              "value": "{{analysis_id}}",
+              "disabled": true,
+              "description": "Specific analysis ID (uses latest if not provided)"
+            },
+            {
+              "key": "role",
+              "value": "coder",
+              "disabled": true,
+              "description": "Filter by functional role"
+            },
+            {
+              "key": "top_n",
+              "value": "20",
+              "description": "Return only top N contributors"
+            }
+          ]
+        },
+        "description": "Compare STC values with contributor statistics"
+      }
+    },
+    {
+      "name": "7. Update Analysis",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"use_monte_carlo\": true,\n  \"monte_carlo_iterations\": 2000\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/stc/analyses/{{analysis_id}}/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "stc", "analyses", "{{analysis_id}}", ""]
+        },
+        "description": "Update analysis configuration"
+      }
+    },
+    {
+      "name": "8. Delete Analysis",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/stc/analyses/{{analysis_id}}/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "stc", "analyses", "{{analysis_id}}", ""]
+        },
+        "description": "Delete an STC analysis"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "project_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "analysis_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
+
