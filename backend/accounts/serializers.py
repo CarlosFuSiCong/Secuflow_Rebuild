@@ -29,9 +29,11 @@ class UserSerializer(serializers.ModelSerializer):
     
     def get_display_name(self, obj):
         """Get user's display name from profile."""
-        if hasattr(obj, 'profile') and obj.profile.display_name:
+        # First check if profile exists and has a non-empty display_name
+        if hasattr(obj, 'profile') and obj.profile and obj.profile.display_name:
             return obj.profile.display_name
-        return obj.get_full_name() or obj.username
+        # Fallback to email if available, then full name, then username
+        return obj.email or obj.get_full_name() or obj.username
     
     def get_avatar(self, obj):
         """Get user's avatar URL from profile."""
@@ -203,7 +205,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm')
         user = User.objects.create_user(**validated_data)
         
-        # Create user profile
-        UserProfile.objects.create(user=user)
+        # Create user profile with explicit display_name
+        UserProfile.objects.create(
+            user=user,
+            display_name=user.email,
+            contact_email=user.email
+        )
         
         return user

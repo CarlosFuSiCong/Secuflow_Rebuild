@@ -160,6 +160,141 @@ class ApiResponse:
         )
     
     @staticmethod
+    def bad_request(
+        error_message: str = "Bad request",
+        error_code: str = "BAD_REQUEST",
+        data: Any = None
+    ) -> Response:
+        """
+        Create a 400 Bad Request response.
+        
+        Args:
+            error_message: Error message
+            error_code: Error code
+            data: Additional error data (optional)
+            
+        Returns:
+            Response object
+        """
+        return ApiResponse.error(
+            error_message=error_message,
+            error_code=error_code,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            data=data
+        )
+    
+    @staticmethod
+    def validation_error(
+        error_message: str = "Validation failed",
+        error_code: str = "VALIDATION_ERROR",
+        data: Any = None
+    ) -> Response:
+        """
+        Create a 400 Bad Request response for validation errors.
+        
+        Args:
+            error_message: Error message
+            error_code: Error code
+            data: Validation error details (optional)
+            
+        Returns:
+            Response object
+        """
+        return ApiResponse.error(
+            error_message=error_message,
+            error_code=error_code,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            data=data
+        )
+    
+    @staticmethod
+    def conflict(
+        error_message: str = "Resource conflict",
+        error_code: str = "CONFLICT"
+    ) -> Response:
+        """
+        Create a 409 Conflict response.
+        
+        Args:
+            error_message: Error message
+            error_code: Error code
+            
+        Returns:
+            Response object
+        """
+        return ApiResponse.error(
+            error_message=error_message,
+            error_code=error_code,
+            status_code=status.HTTP_409_CONFLICT
+        )
+    
+    @staticmethod
+    def unprocessable_entity(
+        error_message: str = "Unprocessable entity",
+        error_code: str = "UNPROCESSABLE_ENTITY",
+        data: Any = None
+    ) -> Response:
+        """
+        Create a 422 Unprocessable Entity response.
+        
+        Args:
+            error_message: Error message
+            error_code: Error code
+            data: Additional error data (optional)
+            
+        Returns:
+            Response object
+        """
+        return ApiResponse.error(
+            error_message=error_message,
+            error_code=error_code,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            data=data
+        )
+    
+    @staticmethod
+    def too_many_requests(
+        error_message: str = "Too many requests",
+        error_code: str = "TOO_MANY_REQUESTS"
+    ) -> Response:
+        """
+        Create a 429 Too Many Requests response.
+        
+        Args:
+            error_message: Error message
+            error_code: Error code
+            
+        Returns:
+            Response object
+        """
+        return ApiResponse.error(
+            error_message=error_message,
+            error_code=error_code,
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS
+        )
+    
+    @staticmethod
+    def service_unavailable(
+        error_message: str = "Service unavailable",
+        error_code: str = "SERVICE_UNAVAILABLE"
+    ) -> Response:
+        """
+        Create a 503 Service Unavailable response.
+        
+        Args:
+            error_message: Error message
+            error_code: Error code
+            
+        Returns:
+            Response object
+        """
+        return ApiResponse.error(
+            error_message=error_message,
+            error_code=error_code,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    @staticmethod
     def internal_error(
         error_message: str = "Internal server error",
         error_code: str = "INTERNAL_ERROR"
@@ -178,4 +313,46 @@ class ApiResponse:
             error_message=error_message,
             error_code=error_code,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
+    @staticmethod
+    def method_not_allowed(
+        error_message: str = "Method not allowed",
+        error_code: str = "METHOD_NOT_ALLOWED"
+    ) -> Response:
+        """
+        Create a 405 Method Not Allowed response.
+        
+        Args:
+            error_message: Error message
+            error_code: Error code
+            
+        Returns:
+            Response object
+        """
+        return ApiResponse.error(
+            error_message=error_message,
+            error_code=error_code,
+            status_code=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+    
+    @staticmethod
+    def not_acceptable(
+        error_message: str = "Not acceptable",
+        error_code: str = "NOT_ACCEPTABLE"
+    ) -> Response:
+        """
+        Create a 406 Not Acceptable response.
+        
+        Args:
+            error_message: Error message
+            error_code: Error code
+            
+        Returns:
+            Response object
+        """
+        return ApiResponse.error(
+            error_message=error_message,
+            error_code=error_code,
+            status_code=status.HTTP_406_NOT_ACCEPTABLE
         )

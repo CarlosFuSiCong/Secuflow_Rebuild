@@ -187,9 +187,22 @@ class ProjectService:
                                     'warning': str(e)
                                 }
                         else:
-                            raise ValidationError("This repository URL already exists and belongs to another owner.")
+                            # Get the existing project owner information for better error message
+                            owner_email = existing.owner_profile.user.email
+                            owner_display_name = existing.owner_profile.display_name or existing.owner_profile.user.username
+                            raise ValidationError(
+                                f"This repository URL already exists and belongs to another user ({owner_display_name} - {owner_email}). "
+                                f"Please contact the project owner to request access to the existing project '{existing.name}', "
+                                f"or use a different repository URL."
+                            )
                     else:
-                        raise ValidationError("This repository URL is already used by another project.")
+                        # Get the existing project owner information for better error message
+                        owner_email = existing.owner_profile.user.email
+                        owner_display_name = existing.owner_profile.display_name or existing.owner_profile.user.username
+                        raise ValidationError(
+                            f"This repository URL is already used by project '{existing.name}' owned by {owner_display_name} ({owner_email}). "
+                            f"Please contact the project owner to request access, or use a different repository URL."
+                        )
 
             # Create project
             project = Project.objects.create(

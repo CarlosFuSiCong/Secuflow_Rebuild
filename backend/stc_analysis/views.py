@@ -394,25 +394,39 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
                     'actual_coordination': int(np.sum(ca_matrix[int(user_id), :] > 0))
                 })
             
-            # Save results to file
-            results_filename = f"stc_results_{analysis.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            results_path = os.path.join(tnm_output_dir, results_filename)
+            # Save results directly to database
+            analysis.stc_value = float(stc_value)
+            analysis.coordination_requirements_total = int(np.sum(cr_matrix > 0))
+            analysis.coordination_actuals_total = int(np.sum(ca_matrix > 0))
+            analysis.missed_coordination_count = len([c for c in results_data['contributors'] if c['missed_coordination_count'] > 0])
+            analysis.unnecessary_coordination_count = 0  # Calculate if needed
+            analysis.contributors_count = len(all_users)
+            analysis.files_count = dependency_matrix.shape[0]
+            analysis.branch_analyzed = branch
+            analysis.tnm_output_dir = tnm_output_dir
             
-            os.makedirs(os.path.dirname(results_path), exist_ok=True)
-            with open(results_path, 'w') as f:
-                json.dump({
-                    'analysis_id': analysis.id,
-                    'project_id': str(analysis.project.id),
-                    'analysis_date': datetime.now().isoformat(),
-                    'use_monte_carlo': analysis.use_monte_carlo,
-                    'results': results_data
-                }, f, indent=2)
-            
-            # Update analysis record
-            analysis.results_file = results_path
+            # Mark as completed
             analysis.is_completed = True
             analysis.error_message = None
             analysis.save()
+            
+            # Optional: Still save JSON for backward compatibility or debugging
+            if getattr(settings, 'STC_SAVE_JSON_BACKUP', False):
+                results_filename = f"stc_results_{analysis.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                results_path = os.path.join(tnm_output_dir, results_filename)
+                
+                os.makedirs(os.path.dirname(results_path), exist_ok=True)
+                with open(results_path, 'w') as f:
+                    json.dump({
+                        'analysis_id': str(analysis.id),
+                        'project_id': str(analysis.project.id),
+                        'analysis_date': datetime.now().isoformat(),
+                        'use_monte_carlo': analysis.use_monte_carlo,
+                        'results': results_data
+                    }, f, indent=2)
+                
+                analysis.results_file = results_path
+                analysis.save(update_fields=['results_file'])
             
             logger.info(f"STC analysis {analysis.id} completed successfully", extra={
                 'user_id': user_id,
@@ -478,16 +492,32 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
             
-            if not analysis.results_file or not os.path.exists(analysis.results_file):
-                return ApiResponse.error(
-                    error_message="Results file not found",
-                    error_code="RESULTS_NOT_FOUND",
-                    status_code=status.HTTP_404_NOT_FOUND
-                )
+            # Get results from database
+            results_data = {
+                'analysis_id': str(analysis.id),
+                'project_id': str(analysis.project.id),
+                'analysis_date': analysis.analysis_date.isoformat(),
+                'use_monte_carlo': analysis.use_monte_carlo,
+                'results': {
+                    'stc_value': analysis.stc_value,
+                    'coordination_requirements_total': analysis.coordination_requirements_total,
+                    'coordination_actuals_total': analysis.coordination_actuals_total,
+                    'missed_coordination_count': analysis.missed_coordination_count,
+                    'unnecessary_coordination_count': analysis.unnecessary_coordination_count,
+                    'contributors_count': analysis.contributors_count,
+                    'files_count': analysis.files_count,
+                    'branch_analyzed': analysis.branch_analyzed,
+                    'coordination_efficiency': (
+                        analysis.coordination_actuals_total / analysis.coordination_requirements_total 
+                        if analysis.coordination_requirements_total > 0 else 0
+                    )
+                }
+            }
             
-            # Load results
-            with open(analysis.results_file, 'r') as f:
-                results_data = json.load(f)
+            # Fallback to JSON file if database fields are empty (backward compatibility)
+            if analysis.stc_value is None and analysis.results_file and os.path.exists(analysis.results_file):
+                with open(analysis.results_file, 'r') as f:
+                    results_data = json.load(f)
             
             # Apply top_n filter if specified
             top_n = request.query_params.get('top_n')

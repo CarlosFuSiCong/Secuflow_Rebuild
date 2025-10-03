@@ -115,6 +115,11 @@ class ProjectMonitoring(models.Model):
         blank=True,
         help_text="Related STC analysis ID"
     )
+    mcstc_analysis_id = models.UUIDField(
+        null=True,
+        blank=True,
+        help_text="Related MC-STC analysis ID"
+    )
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -271,3 +276,48 @@ class ProjectMonitoringSubscription(models.Model):
         """Check if user should be notified about coordination drop."""
         return (self.notify_on_coordination_drop and 
                 coordination_efficiency <= self.coordination_threshold)
+    
+    def get_mcstc_coordination_pairs(self, top_n=20, **filters):
+        """
+        Get coordination pairs directly from MC-STC analysis table.
+        
+        Args:
+            top_n: Number of top pairs to return
+            **filters: Additional filters (role_filter, status_filter, etc.)
+            
+        Returns:
+            QuerySet of MCSTCCoordinationPair objects
+        """
+        if not self.mcstc_analysis_id:
+            return None
+            
+        from mcstc_analysis.models import MCSTCCoordinationPair
+        from django.db.models import Q
+        
+        queryset = MCSTCCoordinationPair.objects.filter(
+            analysis_id=self.mcstc_analysis_id
+        )
+        
+        # Apply filters
+        role_filter = filters.get('role_filter')
+        if role_filter:
+            queryset = queryset.filter(
+                Q(contributor1_role=role_filter) | Q(contributor2_role=role_filter)
+            )
+        
+        status_filter = filters.get('status_filter')
+        if status_filter == 'missed':
+            queryset = queryset.filter(is_missed_coordination=True)
+        elif status_filter == 'unnecessary':
+            queryset = queryset.filter(is_unnecessary_coordination=True)
+        elif status_filter == 'adequate':
+            queryset = queryset.filter(
+                is_missed_coordination=False,
+                is_unnecessary_coordination=False
+            )
+        
+        inter_class_only = filters.get('inter_class_only', False)
+        if inter_class_only:
+            queryset = queryset.filter(is_inter_class=True)
+        
+        return queryset.order_by('-impact_score')[:top_n]

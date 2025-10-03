@@ -9,7 +9,7 @@ API Endpoints:
   Query Parameters:
   - q: Search query (name, repo_url, description)
   - repo_type: Filter by repository type (github/gitlab/bitbucket/other)
-  - role: Filter by user role (owner/member)
+  - role: Filter by user role (owner/member) - replaces my_projects and joined_projects
   - sort: Sort field (-created_at/name/repo_type)
   - include_deleted: Include soft-deleted projects (true/false)
   - page: Page number
@@ -23,8 +23,6 @@ API Endpoints:
 - POST   /api/projects/projects/{id}/add_member/ - Add member
 - DELETE /api/projects/projects/{id}/members/{member_id}/ - Remove member
 - PATCH  /api/projects/projects/{id}/members/{member_id}/ - Update member role
-- GET    /api/projects/projects/my_projects/ - Get owned projects
-- GET    /api/projects/projects/joined_projects/ - Get joined projects
 - GET    /api/projects/projects/stats/     - Get project statistics
 
 Authentication: All endpoints require JWT authentication
@@ -406,80 +404,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 error_code="MEMBER_ROLE_UPDATE_ERROR"
             )
     
-    @action(detail=False, methods=['get'])
-    def my_projects(self, request):
-        """Get projects owned by the current user using service layer."""
-        user_id = request.user.id if request.user else None
-        
-        logger.info("User owned projects request", extra={
-            'user_id': user_id
-        })
-        
-        try:
-            user_profile = request.user.profile
-            
-            # Use service layer to get owned projects
-            owned_projects = ProjectService.get_owned_projects(user_profile)
-            
-            logger.debug("User owned projects retrieved successfully", extra={
-                'user_id': user_id,
-                'projects_count': owned_projects.count()
-            })
-            
-            page = self.paginate_queryset(owned_projects)
-            if page is not None:
-                serializer = ProjectListSerializer(page, many=True)
-                # Build paginated response manually using ApiResponse to avoid rendering issues
-                paginator = self.paginator
-                return ApiResponse.success(data={
-                    'results': serializer.data,
-                    'count': paginator.page.paginator.count,
-                    'next': paginator.get_next_link(),
-                    'previous': paginator.get_previous_link()
-                })
-            
-            serializer = ProjectListSerializer(owned_projects, many=True)
-            return ApiResponse.success(data=serializer.data)
-            
-        except Exception as e:
-            logger.error("Failed to retrieve user owned projects", extra={
-                'user_id': user_id,
-                'error': str(e)
-            }, exc_info=True)
-            return ApiResponse.internal_error(
-                error_message="Failed to get owned projects",
-                error_code="MY_PROJECTS_ERROR"
-            )
-    
-    @action(detail=False, methods=['get'])
-    def joined_projects(self, request):
-        """Get projects where the current user is a member using service layer."""
-        try:
-            user_profile = request.user.profile
-            
-            # Use service layer to get joined projects
-            joined_projects = ProjectService.get_joined_projects(user_profile)
-            
-            page = self.paginate_queryset(joined_projects)
-            if page is not None:
-                serializer = ProjectListSerializer(page, many=True)
-                # Build paginated response manually using ApiResponse to avoid rendering issues
-                paginator = self.paginator
-                return ApiResponse.success(data={
-                    'results': serializer.data,
-                    'count': paginator.page.paginator.count,
-                    'next': paginator.get_next_link(),
-                    'previous': paginator.get_previous_link()
-                })
-            
-            serializer = ProjectListSerializer(joined_projects, many=True)
-            return ApiResponse.success(data=serializer.data)
-            
-        except Exception as e:
-            return ApiResponse.internal_error(
-                error_message="Failed to get joined projects",
-                error_code="JOINED_PROJECTS_ERROR"
-            )
     
     @action(detail=False, methods=['get'])
     def selectable_projects(self, request):

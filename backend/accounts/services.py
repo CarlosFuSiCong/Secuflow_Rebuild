@@ -279,6 +279,7 @@ class UserService:
     def change_password(user, old_password, new_password):
         """
         Change user password with old password verification.
+        After successful password change, all user tokens are invalidated.
         
         Args:
             user: Django User instance
@@ -297,9 +298,16 @@ class UserService:
         user.set_password(new_password)
         user.save()
         
+        # Invalidate all existing tokens for this user by updating the user's last_login
+        # This will make all existing JWT tokens invalid since they were issued before the password change
+        from django.utils import timezone
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
+        
         return {
             'success': True,
-            'message': 'Password changed successfully'
+            'message': 'Password changed successfully. Please log in again with your new password.',
+            'requires_reauth': True  # Flag to indicate frontend should logout
         }
     
     @staticmethod

@@ -21,8 +21,7 @@ from .models import ProjectMonitoring, ProjectMonitoringSubscription, AnalysisTy
 from .serializers import (
     ProjectMonitoringSerializer, ProjectMonitoringListSerializer,
     ProjectMonitoringStatsSerializer, ProjectMonitoringTrendSerializer,
-    ProjectMonitoringSubscriptionSerializer, CreateMonitoringAnalysisSerializer,
-    ProjectAccessSerializer
+    ProjectMonitoringSubscriptionSerializer, CreateMonitoringAnalysisSerializer
 )
 
 logger = logging.getLogger(__name__)
@@ -85,6 +84,260 @@ class ProjectMonitoringViewSet(viewsets.ModelViewSet):
                 pass
         
         return queryset.order_by('-created_at')
+    
+    @action(detail=False, methods=['get'])
+    def project_history(self, request):
+        """
+        Get complete analysis history for a specific project.
+        
+        Query params:
+        - project_id: Required project ID
+        - analysis_type: Filter by analysis type (stc, mc_stc)
+        - date_from: Start date (ISO format)
+        - date_to: End date (ISO format)
+        - limit: Number of records to return (default: 50)
+        """
+        try:
+            project_id = request.query_params.get('project_id')
+            if not project_id:
+                return ApiResponse.validation_error(
+                    error_message="project_id parameter is required",
+                    error_code="MISSING_PROJECT_ID"
+                )
+            
+            # Check project access
+            user_profile = request.user.profile
+            try:
+                project = Project.objects.get(
+                    id=project_id,
+                    deleted_at__isnull=True
+                )
+                
+                # Check if user has access to this project
+                has_access = (
+                    project.owner_profile == user_profile or
+                    ProjectMember.objects.filter(
+                        project=project,
+                        profile=user_profile
+                    ).exists()
+                )
+                
+                if not has_access:
+                    return ApiResponse.forbidden(
+                        error_message="You don't have access to this project",
+                        error_code="PROJECT_ACCESS_DENIED"
+                    )
+                    
+            except Project.DoesNotExist:
+                return ApiResponse.not_found(
+                    error_message="Project not found",
+                    error_code="PROJECT_NOT_FOUND"
+                )
+            
+            # Build queryset
+            queryset = ProjectMonitoring.objects.filter(project=project)
+            
+            # Apply filters
+            analysis_type = request.query_params.get('analysis_type')
+            if analysis_type:
+                queryset = queryset.filter(analysis_type=analysis_type)
+            
+            # Date range filtering
+            date_from = request.query_params.get('date_from')
+            date_to = request.query_params.get('date_to')
+            
+            if date_from:
+                try:
+                    date_from = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                    queryset = queryset.filter(created_at__gte=date_from)
+                except ValueError:
+                    pass
+            
+            if date_to:
+                try:
+                    date_to = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                    queryset = queryset.filter(created_at__lte=date_to)
+                except ValueError:
+                    pass
+            
+            # Limit results
+            limit = int(request.query_params.get('limit', 50))
+            queryset = queryset.order_by('-created_at')[:limit]
+            
+            # Serialize data
+            from .serializers import ProjectMonitoringListSerializer
+            serializer = ProjectMonitoringListSerializer(queryset, many=True)
+            
+            # Calculate summary statistics
+            completed_analyses = queryset.filter(status='completed')
+            avg_stc = completed_analyses.aggregate(Avg('stc_value'))['stc_value__avg']
+            avg_risk = completed_analyses.aggregate(Avg('risk_score'))['risk_score__avg']
+            
+            return ApiResponse.success(
+                data={
+                    'project_id': project_id,
+                    'project_name': project.name,
+                    'total_analyses': queryset.count(),
+                    'completed_analyses': completed_analyses.count(),
+                    'average_stc_value': round(avg_stc, 3) if avg_stc else None,
+                    'average_risk_score': round(avg_risk, 3) if avg_risk else None,
+                    'analyses': serializer.data
+                },
+                message=f"Retrieved {queryset.count()} analysis records"
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to get project history: {e}", exc_info=True)
+            return ApiResponse.internal_error(
+                error_message="Failed to retrieve project history",
+                error_code="PROJECT_HISTORY_ERROR"
+            )
+    
+    @action(detail=False, methods=['get'])
+    def trend_analysis(self, request):
+        """
+        Get trend analysis for a project's STC/MC-STC values over time.
+        
+        Query params:
+        - project_id: Required project ID
+        - analysis_type: Filter by analysis type (stc, mc_stc)
+        - period: Time period (7d, 30d, 90d, 1y) - default: 30d
+        - metric: Metric to analyze (stc_value, risk_score, coordination_efficiency)
+        """
+        try:
+            project_id = request.query_params.get('project_id')
+            if not project_id:
+                return ApiResponse.validation_error(
+                    error_message="project_id parameter is required",
+                    error_code="MISSING_PROJECT_ID"
+                )
+            
+            # Check project access (reuse logic from project_history)
+            user_profile = request.user.profile
+            try:
+                project = Project.objects.get(
+                    id=project_id,
+                    deleted_at__isnull=True
+                )
+                
+                has_access = (
+                    project.owner_profile == user_profile or
+                    ProjectMember.objects.filter(
+                        project=project,
+                        profile=user_profile
+                    ).exists()
+                )
+                
+                if not has_access:
+                    return ApiResponse.forbidden(
+                        error_message="You don't have access to this project",
+                        error_code="PROJECT_ACCESS_DENIED"
+                    )
+                    
+            except Project.DoesNotExist:
+                return ApiResponse.not_found(
+                    error_message="Project not found",
+                    error_code="PROJECT_NOT_FOUND"
+                )
+            
+            # Parse parameters
+            analysis_type = request.query_params.get('analysis_type', 'mc_stc')
+            period = request.query_params.get('period', '30d')
+            metric = request.query_params.get('metric', 'stc_value')
+            
+            # Calculate date range
+            now = timezone.now()
+            if period == '7d':
+                date_from = now - timedelta(days=7)
+            elif period == '30d':
+                date_from = now - timedelta(days=30)
+            elif period == '90d':
+                date_from = now - timedelta(days=90)
+            elif period == '1y':
+                date_from = now - timedelta(days=365)
+            else:
+                date_from = now - timedelta(days=30)  # default
+            
+            # Get trend data
+            queryset = ProjectMonitoring.objects.filter(
+                project=project,
+                analysis_type=analysis_type,
+                status='completed',
+                completed_at__gte=date_from,
+                completed_at__isnull=False
+            ).order_by('completed_at')
+            
+            # Prepare trend data
+            trend_data = []
+            for record in queryset:
+                if metric == 'stc_value':
+                    value = record.stc_value
+                elif metric == 'risk_score':
+                    value = record.risk_score
+                elif metric == 'coordination_efficiency':
+                    value = record.coordination_efficiency
+                else:
+                    value = record.stc_value
+                
+                trend_data.append({
+                    'date': record.completed_at.isoformat(),
+                    'value': value,
+                    'analysis_id': str(record.id)
+                })
+            
+            # Calculate statistics
+            values = [item['value'] for item in trend_data if item['value'] is not None]
+            if values:
+                avg_value = sum(values) / len(values)
+                min_value = min(values)
+                max_value = max(values)
+                
+                # Calculate trend (simple linear regression slope)
+                if len(values) > 1:
+                    x_values = list(range(len(values)))
+                    n = len(values)
+                    sum_x = sum(x_values)
+                    sum_y = sum(values)
+                    sum_xy = sum(x * y for x, y in zip(x_values, values))
+                    sum_x2 = sum(x * x for x in x_values)
+                    
+                    slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x)
+                    trend_direction = 'improving' if slope > 0.01 else 'declining' if slope < -0.01 else 'stable'
+                else:
+                    slope = 0
+                    trend_direction = 'insufficient_data'
+            else:
+                avg_value = min_value = max_value = slope = None
+                trend_direction = 'no_data'
+            
+            return ApiResponse.success(
+                data={
+                    'project_id': project_id,
+                    'project_name': project.name,
+                    'analysis_type': analysis_type,
+                    'metric': metric,
+                    'period': period,
+                    'date_from': date_from.isoformat(),
+                    'date_to': now.isoformat(),
+                    'data_points': len(trend_data),
+                    'trend_data': trend_data,
+                    'statistics': {
+                        'average': round(avg_value, 3) if avg_value is not None else None,
+                        'minimum': round(min_value, 3) if min_value is not None else None,
+                        'maximum': round(max_value, 3) if max_value is not None else None,
+                        'trend_slope': round(slope, 4) if slope is not None else None,
+                        'trend_direction': trend_direction
+                    }
+                },
+                message=f"Retrieved trend analysis for {len(trend_data)} data points"
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to get trend analysis: {e}", exc_info=True)
+            return ApiResponse.internal_error(
+                error_message="Failed to retrieve trend analysis",
+                error_code="TREND_ANALYSIS_ERROR"
+            )
     
     def get_serializer_class(self):
         """Return appropriate serializer based on action."""
@@ -355,12 +608,24 @@ class ProjectMonitoringViewSet(viewsets.ModelViewSet):
                         "No completed MC-STC analysis found for this project"
                     )
             
-            # Get top coordination pairs
-            coordination_pairs = monitoring.top_coordination_pairs or []
+            # Get coordination pairs directly from MC-STC table
+            coordination_pairs_queryset = monitoring.get_mcstc_coordination_pairs(
+                top_n=top_n,
+                role_filter=request.query_params.get('role_filter'),
+                status_filter=request.query_params.get('status_filter'),
+                inter_class_only=request.query_params.get('inter_class_only', '').lower() == 'true'
+            )
             
-            # Limit to requested number
-            if len(coordination_pairs) > top_n:
-                coordination_pairs = coordination_pairs[:top_n]
+            if coordination_pairs_queryset is not None:
+                # Use MC-STC table data (preferred)
+                from mcstc_analysis.serializers import MCSTCCoordinationPairSerializer
+                serializer = MCSTCCoordinationPairSerializer(coordination_pairs_queryset, many=True)
+                coordination_pairs = serializer.data
+            else:
+                # Fallback to JSON field data
+                coordination_pairs = monitoring.top_coordination_pairs or []
+                if len(coordination_pairs) > top_n:
+                    coordination_pairs = coordination_pairs[:top_n]
             
             return ApiResponse.success(
                 data={
@@ -470,52 +735,3 @@ def create_monitoring_analysis(request):
         )
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def check_project_access(request, project_id):
-    """
-    Check if user has access to a project.
-    
-    GET /api/project-monitoring/check-access/{project_id}/
-    """
-    try:
-        user_profile = request.user.profile
-        
-        try:
-            project = Project.objects.get(id=project_id, deleted_at__isnull=True)
-        except Project.DoesNotExist:
-            return ApiResponse.not_found("Project not found")
-        
-        # Check access
-        is_owner = project.owner_profile == user_profile
-        is_member = project.members.filter(profile=user_profile).exists()
-        has_access = is_owner or is_member
-        
-        # Get role if member
-        role = None
-        if is_owner:
-            role = 'owner'
-        elif is_member:
-            member = project.members.filter(profile=user_profile).first()
-            role = member.role if member else None
-        
-        data = {
-            'project_id': project_id,
-            'has_access': has_access,
-            'role': role,
-            'is_owner': is_owner,
-            'is_member': is_member
-        }
-        
-        serializer = ProjectAccessSerializer(data)
-        return ApiResponse.success(
-            data=serializer.data,
-            message="Project access checked successfully"
-        )
-        
-    except Exception as e:
-        logger.error(f"Failed to check project access: {e}", exc_info=True)
-        return ApiResponse.internal_error(
-            error_message="Failed to check project access",
-            error_code="CHECK_ACCESS_ERROR"
-        )

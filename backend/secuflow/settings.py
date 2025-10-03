@@ -49,6 +49,10 @@ INSTALLED_APPS = [
     # Local applications
     'accounts',
     'projects',
+    'contributors',
+    'project_monitoring',
+    'stc_analysis',
+    'mcstc_analysis',
     'tnm_integration',
 ]
 

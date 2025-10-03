@@ -73,27 +73,17 @@ class Project(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     
-    # Risk assessment fields
+    # Risk assessment fields (legacy - now computed from analysis results)
     last_risk_check_at = models.DateTimeField(
         null=True, 
         blank=True,
-        help_text="Last risk assessment timestamp"
-    )
-    stc_risk_score = models.FloatField(
-        default=0.0,
-        help_text="STC risk score (0-1, higher means more risky)"
-    )
-    mcstc_risk_score = models.FloatField(
-        default=0.0,
-        help_text="MC-STC risk score (0-1, higher means more risky)"
+        help_text="Last risk assessment timestamp (legacy field)"
     )
 
     class Meta:
         indexes = [
             models.Index(fields=['repo_type']),
             models.Index(fields=['deleted_at']),
-            models.Index(fields=['stc_risk_score']),
-            models.Index(fields=['mcstc_risk_score']),
             models.Index(fields=['last_risk_check_at']),
             # Composite indexes for common queries
             models.Index(fields=['owner_profile', 'deleted_at']),
@@ -123,6 +113,34 @@ class Project(models.Model):
         """Check if the project is soft-deleted."""
         return self.deleted_at is not None
     
+    @property
+    def stc_risk_score(self):
+        """
+        Calculate STC risk score based on latest STC analysis.
+        Risk score = 1 - STC value (higher STC means lower risk)
+        """
+        try:
+            latest_stc = self.stc_analyses.filter(is_completed=True).first()
+            if latest_stc and latest_stc.stc_value is not None:
+                return round(1.0 - latest_stc.stc_value, 3)
+        except Exception:
+            pass
+        return 1.0  # High risk if no analysis available
+    
+    @property
+    def mcstc_risk_score(self):
+        """
+        Calculate MC-STC risk score based on latest MC-STC analysis.
+        Risk score = 1 - MC-STC value (higher MC-STC means lower risk)
+        """
+        try:
+            latest_mcstc = self.mcstc_analyses.filter(is_completed=True).first()
+            if latest_mcstc and latest_mcstc.mcstc_value is not None:
+                return round(1.0 - latest_mcstc.mcstc_value, 3)
+        except Exception:
+            pass
+        return 1.0  # High risk if no analysis available
+    
     def needs_risk_assessment(self, max_age_days: int = 7) -> bool:
         """
         Check if the project needs a new risk assessment.
@@ -149,23 +167,13 @@ class Project(models.Model):
         age = timezone.now() - self.last_risk_check_at
         return age.days >= max_age_days
     
-    def update_risk_scores(self, stc_score: float, mcstc_score: float):
+    def update_risk_assessment_timestamp(self):
         """
-        Update project risk scores for both STC and MC-STC methods.
-        
-        Args:
-            stc_score: STC risk score between 0 and 1 (higher means more risky)
-            mcstc_score: MC-STC risk score between 0 and 1 (higher means more risky)
+        Update the last risk assessment timestamp.
+        Risk scores are now computed from analysis results.
         """
-        if not 0 <= stc_score <= 1:
-            raise ValueError("STC risk score must be between 0 and 1")
-        if not 0 <= mcstc_score <= 1:
-            raise ValueError("MC-STC risk score must be between 0 and 1")
-            
-        self.stc_risk_score = stc_score
-        self.mcstc_risk_score = mcstc_score
         self.last_risk_check_at = timezone.now()
-        self.save()
+        self.save(update_fields=['last_risk_check_at'])
 
 
 class ProjectMember(models.Model):

@@ -21,5 +21,4 @@ urlpatterns = [
     
     # Function-based view routes
     path('create-analysis/', views.create_monitoring_analysis, name='create-analysis'),
-    path('check-access/<uuid:project_id>/', views.check_project_access, name='check-access'),
 ]

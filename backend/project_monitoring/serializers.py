@@ -146,11 +146,3 @@ class CreateMonitoringAnalysisSerializer(serializers.Serializer):
         return data
 
 
-class ProjectAccessSerializer(serializers.Serializer):
-    """Serializer for checking project access."""
-    
-    project_id = serializers.UUIDField()
-    has_access = serializers.BooleanField()
-    role = serializers.CharField(allow_null=True)
-    is_owner = serializers.BooleanField()
-    is_member = serializers.BooleanField()

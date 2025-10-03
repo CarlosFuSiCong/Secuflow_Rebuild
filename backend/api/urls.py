@@ -11,6 +11,7 @@ urlpatterns = [
     # Analysis modules
     path('contributors/', include('contributors.urls')),
     path('stc/', include('stc_analysis.urls')),
+    path('mcstc/', include('mcstc_analysis.urls')),
     path('project-monitoring/', include('project_monitoring.urls')),
 ]
 

@@ -449,7 +449,9 @@ class UserViewSet(viewsets.ModelViewSet):
                 'ip_address': request.META.get('REMOTE_ADDR')
             })
             
+            # Return success response with logout indication
             return ApiResponse.success(
+                data={'requires_reauth': result.get('requires_reauth', False)},
                 message=result['message']
             )
             

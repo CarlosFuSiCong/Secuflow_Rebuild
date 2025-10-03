@@ -77,22 +77,70 @@ class ProjectSerializer(serializers.ModelSerializer):
     members_count = serializers.SerializerMethodField()
     is_deleted = serializers.BooleanField(read_only=True)
     
+    # Latest analysis results
+    latest_stc_result = serializers.SerializerMethodField()
+    latest_mcstc_result = serializers.SerializerMethodField()
+    
     class Meta:
         model = Project
         fields = [
             'id', 'name', 'description', 'repo_url', 'repo_type', 'default_branch',
             'owner_profile', 'owner_id', 'owner_username', 'owner_email',
             'members_count', 'created_at', 'updated_at', 'is_deleted',
-            'stc_risk_score', 'mcstc_risk_score', 'last_risk_check_at'
+            'stc_risk_score', 'mcstc_risk_score', 'last_risk_check_at',
+            'latest_stc_result', 'latest_mcstc_result'
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at', 'is_deleted',
-            'stc_risk_score', 'mcstc_risk_score', 'last_risk_check_at'
+            'stc_risk_score', 'mcstc_risk_score', 'last_risk_check_at',
+            'latest_stc_result', 'latest_mcstc_result'
         ]
     
     def get_members_count(self, obj):
         """Get the number of members in the project."""
         return obj.members.count()
+    
+    def get_latest_stc_result(self, obj):
+        """Get the latest STC analysis result for this project."""
+        try:
+            latest_stc = obj.stc_analyses.filter(is_completed=True).first()
+            if latest_stc:
+                return {
+                    'id': str(latest_stc.id),
+                    'stc_value': latest_stc.stc_value,
+                    'analysis_date': latest_stc.analysis_date.isoformat(),
+                    'branch_analyzed': latest_stc.branch_analyzed,
+                    'contributors_count': latest_stc.contributors_count,
+                    'coordination_efficiency': (
+                        latest_stc.coordination_actuals_total / latest_stc.coordination_requirements_total
+                        if latest_stc.coordination_requirements_total and latest_stc.coordination_requirements_total > 0
+                        else 0
+                    )
+                }
+        except Exception:
+            pass
+        return None
+    
+    def get_latest_mcstc_result(self, obj):
+        """Get the latest MC-STC analysis result for this project."""
+        try:
+            latest_mcstc = obj.mcstc_analyses.filter(is_completed=True).first()
+            if latest_mcstc:
+                return {
+                    'id': str(latest_mcstc.id),
+                    'mcstc_value': latest_mcstc.mcstc_value,
+                    'analysis_date': latest_mcstc.analysis_date.isoformat(),
+                    'branch_analyzed': latest_mcstc.branch_analyzed,
+                    'total_contributors_analyzed': latest_mcstc.total_contributors_analyzed,
+                    'developer_count': latest_mcstc.developer_count,
+                    'security_count': latest_mcstc.security_count,
+                    'ops_count': latest_mcstc.ops_count,
+                    'inter_class_coordination_score': latest_mcstc.inter_class_coordination_score,
+                    'intra_class_coordination_score': latest_mcstc.intra_class_coordination_score
+                }
+        except Exception:
+            pass
+        return None
     
     def validate_repo_url(self, value):
         """Validate repository URL format."""
@@ -117,18 +165,65 @@ class ProjectListSerializer(serializers.ModelSerializer):
     members_count = serializers.SerializerMethodField()
     is_deleted = serializers.BooleanField(read_only=True)
     
+    # Latest analysis results
+    latest_stc_result = serializers.SerializerMethodField()
+    latest_mcstc_result = serializers.SerializerMethodField()
+    
     class Meta:
         model = Project
         fields = [
             'id', 'name', 'description', 'repo_url', 'repo_type',
             'owner_id', 'owner_username', 'members_count',
             'stc_risk_score', 'mcstc_risk_score',
+            'latest_stc_result', 'latest_mcstc_result',
             'is_deleted', 'created_at'
         ]
     
     def get_members_count(self, obj):
         """Get the number of members in the project."""
         return obj.members.count()
+    
+    def get_latest_stc_result(self, obj):
+        """Get the latest STC analysis result for this project."""
+        try:
+            latest_stc = obj.stc_analyses.filter(is_completed=True).first()
+            if latest_stc:
+                return {
+                    'id': str(latest_stc.id),
+                    'stc_value': latest_stc.stc_value,
+                    'analysis_date': latest_stc.analysis_date.isoformat(),
+                    'branch_analyzed': latest_stc.branch_analyzed,
+                    'contributors_count': latest_stc.contributors_count,
+                    'coordination_efficiency': (
+                        latest_stc.coordination_actuals_total / latest_stc.coordination_requirements_total
+                        if latest_stc.coordination_requirements_total and latest_stc.coordination_requirements_total > 0
+                        else 0
+                    )
+                }
+        except Exception:
+            pass
+        return None
+    
+    def get_latest_mcstc_result(self, obj):
+        """Get the latest MC-STC analysis result for this project."""
+        try:
+            latest_mcstc = obj.mcstc_analyses.filter(is_completed=True).first()
+            if latest_mcstc:
+                return {
+                    'id': str(latest_mcstc.id),
+                    'mcstc_value': latest_mcstc.mcstc_value,
+                    'analysis_date': latest_mcstc.analysis_date.isoformat(),
+                    'branch_analyzed': latest_mcstc.branch_analyzed,
+                    'total_contributors_analyzed': latest_mcstc.total_contributors_analyzed,
+                    'developer_count': latest_mcstc.developer_count,
+                    'security_count': latest_mcstc.security_count,
+                    'ops_count': latest_mcstc.ops_count,
+                    'inter_class_coordination_score': latest_mcstc.inter_class_coordination_score,
+                    'intra_class_coordination_score': latest_mcstc.intra_class_coordination_score
+                }
+        except Exception:
+            pass
+        return None
 
 
 class ProjectMemberSerializer(serializers.ModelSerializer):
