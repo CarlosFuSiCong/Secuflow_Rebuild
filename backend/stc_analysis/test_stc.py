@@ -7,6 +7,9 @@ class STCServiceTests(TestCase):
         """Set up test cases"""
         self.service = STCService(project_id="test")
         
+        # CR matrices (Collaboration Relations) for testing
+        # These represent developer collaboration networks (symmetric matrices)
+        
         # Test case 1: Simple path graph (3 nodes)
         # 0 -- 1 -- 2
         self.path_graph = np.array([
@@ -50,6 +53,13 @@ class STCServiceTests(TestCase):
             [2, 0, 0, 1],
             [1, 0, 0, 1],
             [3, 1, 1, 0]
+        ])
+        
+        # Sample CA matrix (3 developers × 4 files)
+        self.ca_matrix = np.array([
+            [5, 3, 0, 2],  # Developer 0's contributions
+            [2, 4, 3, 0],  # Developer 1's contributions
+            [0, 1, 5, 4]   # Developer 2's contributions
         ])
 
     def test_kirchhoff_matrix(self):
@@ -104,17 +114,35 @@ class STCServiceTests(TestCase):
         self.assertAlmostEqual(participation[1,0], participation[0,1])
         self.assertAlmostEqual(participation[2,1], participation[1,2])
 
-    def test_stc_calculation(self):
-        """Test overall STC calculation"""
+    def test_cr_matrix_calculation(self):
+        """Test CR matrix calculation from CA matrix"""
+        # Calculate CR = CA × CA^T
+        cr_matrix = self.service.calculate_cr_matrix(self.ca_matrix)
+        
+        # Check dimensions (should be m × m, where m = number of developers)
+        self.assertEqual(cr_matrix.shape, (3, 3))
+        
+        # Check symmetry
+        self.assertTrue(np.allclose(cr_matrix, cr_matrix.T))
+        
+        # Check values are non-negative
+        self.assertTrue(np.all(cr_matrix >= 0))
+        
+        # Manually verify one value: CR[0,1] = sum(CA[0,i] * CA[1,i] for all i)
+        expected_cr_01 = np.dot(self.ca_matrix[0], self.ca_matrix[1])
+        self.assertAlmostEqual(cr_matrix[0,1], expected_cr_01)
+
+    def test_stc_from_cr(self):
+        """Test STC calculation from CR matrix"""
         # Test path graph
-        stc_values = self.service.calculate_stc(self.path_graph)
+        stc_values = self.service.calculate_stc_from_cr(self.path_graph)
         
         # In a path graph, middle node should have higher centrality
         self.assertGreater(float(stc_values['1']), float(stc_values['0']))
         self.assertGreater(float(stc_values['1']), float(stc_values['2']))
         
         # Test star graph
-        stc_values = self.service.calculate_stc(self.star_graph)
+        stc_values = self.service.calculate_stc_from_cr(self.star_graph)
         
         # In a star graph, center node (0) should have highest centrality
         center_value = float(stc_values['0'])
@@ -124,10 +152,22 @@ class STCServiceTests(TestCase):
         # Leaf nodes should have equal centrality
         self.assertAlmostEqual(float(stc_values['1']), float(stc_values['2']))
         self.assertAlmostEqual(float(stc_values['2']), float(stc_values['3']))
+    
+    def test_stc_from_ca(self):
+        """Test STC calculation from CA matrix (full workflow)"""
+        # This tests the complete workflow: CA → CR → STC
+        stc_values = self.service.calculate_stc_from_ca(self.ca_matrix)
+        
+        # Check that we get values for all developers
+        self.assertEqual(len(stc_values), 3)
+        
+        # Check all values are non-negative
+        for value in stc_values.values():
+            self.assertGreaterEqual(float(value), 0.0)
 
     def test_weighted_graph(self):
         """Test STC calculation for weighted graphs"""
-        stc_values = self.service.calculate_stc(self.weighted_graph)
+        stc_values = self.service.calculate_stc_from_cr(self.weighted_graph)
         
         # Node 0 should have highest centrality due to high weight connections
         node0_value = float(stc_values['0'])
@@ -136,16 +176,20 @@ class STCServiceTests(TestCase):
 
     def test_invalid_input(self):
         """Test error handling for invalid inputs"""
-        # Test non-symmetric matrix
+        # Test non-symmetric CR matrix
         non_symmetric = np.array([
             [0, 1, 0],
             [0, 0, 1],
             [0, 0, 0]
         ])
         with self.assertRaises(ValueError):
-            self.service.calculate_stc(non_symmetric)
-            
-        # Test empty matrix
-        empty_matrix = np.array([])
+            self.service.calculate_stc_from_cr(non_symmetric)
+        
+        # Test CR matrix with negative values
+        negative_matrix = np.array([
+            [0, -1, 0],
+            [-1, 0, 1],
+            [0, 1, 0]
+        ])
         with self.assertRaises(ValueError):
-            self.service.calculate_stc(empty_matrix)
+            self.service.calculate_stc_from_cr(negative_matrix)

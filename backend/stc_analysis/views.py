@@ -197,12 +197,28 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
                     status_code=status.HTTP_404_NOT_FOUND
                 )
             
-            # Load assignment matrix
+            # Load CA (Contribution Assignment) matrix
             with open(assignment_matrix_path, 'r') as f:
-                assignment_data = json.load(f)
+                ca_data = json.load(f)
             
-            # Convert to adjacency matrix
-            adjacency_matrix = np.array(assignment_data)
+            # Convert to numpy array
+            ca_matrix = np.array(ca_data)
+            
+            # Validate CA matrix
+            if ca_matrix.ndim != 2:
+                analysis.error_message = "Invalid CA matrix: must be 2-dimensional"
+                analysis.save()
+                return ApiResponse.error(
+                    error_message="Invalid CA matrix format",
+                    error_code="INVALID_DATA",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            logger.info(f"CA matrix shape: {ca_matrix.shape} (developers × files)", extra={
+                'analysis_id': analysis.id,
+                'developers': ca_matrix.shape[0],
+                'files': ca_matrix.shape[1]
+            })
             
             # Initialize service
             if analysis.use_monte_carlo:
@@ -213,8 +229,12 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
             else:
                 service = STCService(project_id=str(analysis.project.id))
             
-            # Calculate STC
-            stc_values = service.calculate_stc(adjacency_matrix)
+            # Calculate STC from CA matrix
+            # Service will automatically compute CR = CA × CA^T
+            if analysis.use_monte_carlo:
+                stc_values = service.calculate_mc_stc_from_ca(ca_matrix)
+            else:
+                stc_values = service.calculate_stc_from_ca(ca_matrix)
             
             # Save results
             results_filename = f"stc_results_{analysis.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
