@@ -1,6 +1,6 @@
 import numpy as np
 from django.test import TestCase
-from stc_analysis.services import STCService
+from stc_analysis.services import STCService, MCSTCService
 
 class STCServiceTests(TestCase):
     def setUp(self):
@@ -193,3 +193,167 @@ class STCServiceTests(TestCase):
         ])
         with self.assertRaises(ValueError):
             self.service.calculate_stc_from_cr(negative_matrix)
+
+
+class MCSTCServiceTests(TestCase):
+    """Test suite for MC-STC (Monte Carlo Spanning Tree Centrality) service"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.service = MCSTCService(project_id="test", iterations=100)
+        
+        # CR matrices for testing
+        self.path_graph = np.array([
+            [0, 1, 0],
+            [1, 0, 1],
+            [0, 1, 0]
+        ])
+        
+        self.complete_graph = np.array([
+            [0, 1, 1, 1],
+            [1, 0, 1, 1],
+            [1, 1, 0, 1],
+            [1, 1, 1, 0]
+        ])
+        
+        self.star_graph = np.array([
+            [0, 1, 1, 1],
+            [1, 0, 0, 0],
+            [1, 0, 0, 0],
+            [1, 0, 0, 0]
+        ])
+        
+        # Sample CA matrix
+        self.ca_matrix = np.array([
+            [5, 3, 0, 2],
+            [2, 4, 3, 0],
+            [0, 1, 5, 4]
+        ])
+    
+    def test_get_edges_from_matrix(self):
+        """Test edge extraction from CR matrix"""
+        edges = self.service._get_edges_from_matrix(self.path_graph)
+        
+        # Path graph should have 2 edges
+        self.assertEqual(len(edges), 2)
+        
+        # Check edges
+        edge_pairs = {(e[0], e[1]) for e in edges}
+        self.assertIn((0, 1), edge_pairs)
+        self.assertIn((1, 2), edge_pairs)
+    
+    def test_union_find(self):
+        """Test Union-Find data structure"""
+        parent = {0: 0, 1: 1, 2: 2}
+        rank = {0: 0, 1: 0, 2: 0}
+        
+        # Union nodes 0 and 1
+        result = self.service._union(parent, rank, 0, 1)
+        self.assertTrue(result)
+        
+        # Find parents
+        root_0 = self.service._find_parent(parent, 0)
+        root_1 = self.service._find_parent(parent, 1)
+        self.assertEqual(root_0, root_1)
+        
+        # Try to union again (should fail)
+        result = self.service._union(parent, rank, 0, 1)
+        self.assertFalse(result)
+    
+    def test_generate_random_spanning_tree(self):
+        """Test random spanning tree generation"""
+        tree = self.service.generate_random_spanning_tree(self.complete_graph)
+        
+        # Check tree properties
+        self.assertEqual(tree.shape, (4, 4))
+        self.assertTrue(np.allclose(tree, tree.T))  # Symmetric
+        
+        # A spanning tree of 4 nodes should have 3 edges
+        edge_count = np.sum(tree > 0) / 2  # Divide by 2 for undirected graph
+        self.assertEqual(edge_count, 3)
+    
+    def test_generate_spanning_tree_empty_graph(self):
+        """Test spanning tree generation for graph with no edges"""
+        empty_graph = np.zeros((3, 3))
+        tree = self.service.generate_random_spanning_tree(empty_graph)
+        
+        # Should return empty tree
+        self.assertTrue(np.allclose(tree, np.zeros((3, 3))))
+    
+    def test_calculate_node_importance_in_tree(self):
+        """Test node importance calculation in a tree"""
+        # Use path graph as a simple tree
+        importance = self.service.calculate_node_importance_in_tree(self.path_graph)
+        
+        # Should have 3 nodes
+        self.assertEqual(len(importance), 3)
+        
+        # All importance values should sum to 1 (normalized)
+        total = sum(importance.values())
+        self.assertAlmostEqual(total, 1.0, places=7)
+        
+        # Middle node (1) should have higher importance
+        self.assertGreater(float(importance['1']), float(importance['0']))
+        self.assertGreater(float(importance['1']), float(importance['2']))
+    
+    def test_mc_stc_from_cr(self):
+        """Test MC-STC calculation from CR matrix"""
+        mc_stc_values = self.service.calculate_mc_stc_from_cr(self.star_graph)
+        
+        # Should have 4 nodes
+        self.assertEqual(len(mc_stc_values), 4)
+        
+        # All values should be non-negative
+        for value in mc_stc_values.values():
+            self.assertGreaterEqual(float(value), 0.0)
+        
+        # Center node (0) should have highest centrality
+        center_value = float(mc_stc_values['0'])
+        for i in range(1, 4):
+            self.assertGreater(center_value, float(mc_stc_values[str(i)]))
+    
+    def test_mc_stc_from_ca(self):
+        """Test MC-STC calculation from CA matrix"""
+        mc_stc_values = self.service.calculate_mc_stc_from_ca(self.ca_matrix)
+        
+        # Should have 3 developers
+        self.assertEqual(len(mc_stc_values), 3)
+        
+        # All values should be non-negative
+        for value in mc_stc_values.values():
+            self.assertGreaterEqual(float(value), 0.0)
+    
+    def test_mc_stc_consistency(self):
+        """Test that MC-STC values are consistent across runs"""
+        # Run MC-STC twice with the same seed
+        service1 = MCSTCService(project_id="test", iterations=50)
+        service1.random_state = np.random.RandomState(42)
+        result1 = service1.calculate_mc_stc_from_cr(self.complete_graph)
+        
+        service2 = MCSTCService(project_id="test", iterations=50)
+        service2.random_state = np.random.RandomState(42)
+        result2 = service2.calculate_mc_stc_from_cr(self.complete_graph)
+        
+        # Results should be identical with same seed
+        for key in result1:
+            self.assertAlmostEqual(result1[key], result2[key], places=7)
+    
+    def test_mc_stc_empty_graph(self):
+        """Test MC-STC on graph with no edges"""
+        empty_graph = np.zeros((3, 3))
+        mc_stc_values = self.service.calculate_mc_stc_from_cr(empty_graph)
+        
+        # All values should be zero
+        for value in mc_stc_values.values():
+            self.assertEqual(float(value), 0.0)
+    
+    def test_mc_stc_invalid_input(self):
+        """Test error handling for invalid inputs"""
+        # Test non-symmetric CR matrix
+        non_symmetric = np.array([
+            [0, 1, 0],
+            [0, 0, 1],
+            [0, 0, 0]
+        ])
+        with self.assertRaises(ValueError):
+            self.service.calculate_mc_stc_from_cr(non_symmetric)

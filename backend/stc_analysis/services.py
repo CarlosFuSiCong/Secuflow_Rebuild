@@ -1,7 +1,8 @@
 import numpy as np
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 from scipy import linalg
 from stc_analysis.models import STCAnalysis
+import random
 
 class STCService:
     """Service for STC (Spanning Tree Centrality) calculations
@@ -168,14 +169,70 @@ class STCService:
         return stc_values
 
 class MCSTCService(STCService):
-    """Service for MC-STC (Monte Carlo Spanning Tree Centrality) calculations"""
+    """Service for MC-STC (Monte Carlo Spanning Tree Centrality) calculations
+    
+    MC-STC uses Monte Carlo sampling to estimate STC values by:
+    1. Generating random spanning trees from the collaboration network
+    2. Computing node importance in each sampled tree
+    3. Averaging across all samples to get final STC estimates
+    """
     
     def __init__(self, project_id: str, iterations: int = 1000):
         super().__init__(project_id)
         self.iterations = iterations
+        self.random_state = np.random.RandomState()
+    
+    def _get_edges_from_matrix(self, cr_matrix: np.ndarray) -> List[Tuple[int, int, float]]:
+        """Extract edges from CR matrix
+        
+        Args:
+            cr_matrix: Collaboration Relations matrix
+            
+        Returns:
+            List of (node_i, node_j, weight) tuples
+        """
+        edges = []
+        n = len(cr_matrix)
+        for i in range(n):
+            for j in range(i + 1, n):
+                if cr_matrix[i, j] > 0:
+                    edges.append((i, j, cr_matrix[i, j]))
+        return edges
+    
+    def _find_parent(self, parent: Dict[int, int], node: int) -> int:
+        """Find root parent for Union-Find algorithm"""
+        if parent[node] != node:
+            parent[node] = self._find_parent(parent, parent[node])
+        return parent[node]
+    
+    def _union(self, parent: Dict[int, int], rank: Dict[int, int], x: int, y: int) -> bool:
+        """Union operation for Union-Find algorithm
+        
+        Returns:
+            True if union was performed, False if nodes already in same set
+        """
+        root_x = self._find_parent(parent, x)
+        root_y = self._find_parent(parent, y)
+        
+        if root_x == root_y:
+            return False
+        
+        # Union by rank
+        if rank[root_x] < rank[root_y]:
+            parent[root_x] = root_y
+        elif rank[root_x] > rank[root_y]:
+            parent[root_y] = root_x
+        else:
+            parent[root_y] = root_x
+            rank[root_x] += 1
+        
+        return True
         
     def generate_random_spanning_tree(self, cr_matrix: np.ndarray) -> np.ndarray:
-        """Generate random spanning tree from CR matrix
+        """Generate random spanning tree using randomized Kruskal's algorithm
+        
+        Uses probability sampling based on edge weights to generate
+        a random spanning tree from the collaboration network.
         
         Args:
             cr_matrix: Collaboration Relations matrix (m × m)
@@ -183,8 +240,72 @@ class MCSTCService(STCService):
         Returns:
             Adjacency matrix of the random spanning tree
         """
-        # TODO: Implement random spanning tree algorithm (e.g., Wilson's algorithm)
-        pass
+        n = len(cr_matrix)
+        edges = self._get_edges_from_matrix(cr_matrix)
+        
+        if not edges:
+            # No edges, return empty tree
+            return np.zeros_like(cr_matrix)
+        
+        # Convert edges to probabilities based on weights
+        weights = np.array([w for _, _, w in edges])
+        probabilities = weights / weights.sum() if weights.sum() > 0 else np.ones(len(edges)) / len(edges)
+        
+        # Shuffle edges with probability proportional to weights
+        edge_indices = self.random_state.choice(
+            len(edges), 
+            size=len(edges), 
+            replace=False, 
+            p=probabilities
+        )
+        
+        # Initialize Union-Find structure
+        parent = {i: i for i in range(n)}
+        rank = {i: 0 for i in range(n)}
+        
+        # Build spanning tree using randomized Kruskal's algorithm
+        tree_edges = []
+        for idx in edge_indices:
+            i, j, weight = edges[idx]
+            if self._union(parent, rank, i, j):
+                tree_edges.append((i, j, weight))
+                if len(tree_edges) == n - 1:
+                    break
+        
+        # Convert edges to adjacency matrix
+        tree_matrix = np.zeros((n, n))
+        for i, j, weight in tree_edges:
+            tree_matrix[i, j] = weight
+            tree_matrix[j, i] = weight
+        
+        return tree_matrix
+    
+    def calculate_node_importance_in_tree(self, tree_matrix: np.ndarray) -> Dict[str, float]:
+        """Calculate node importance in a single spanning tree
+        
+        For MC-STC, node importance in a tree is based on its degree
+        (number of connections) weighted by edge weights.
+        
+        Args:
+            tree_matrix: Adjacency matrix of spanning tree
+            
+        Returns:
+            Dictionary mapping node index to importance value
+        """
+        n = len(tree_matrix)
+        importance = {}
+        
+        for i in range(n):
+            # Weighted degree: sum of edge weights
+            node_importance = np.sum(tree_matrix[i, :])
+            importance[str(i)] = float(node_importance)
+        
+        # Normalize by total importance
+        total_importance = sum(importance.values())
+        if total_importance > 0:
+            importance = {k: v / total_importance for k, v in importance.items()}
+        
+        return importance
         
     def calculate_mc_stc_from_ca(self, ca_matrix: np.ndarray) -> Dict[str, float]:
         """Calculate MC-STC from CA matrix using Monte Carlo method
@@ -202,12 +323,46 @@ class MCSTCService(STCService):
     def calculate_mc_stc_from_cr(self, cr_matrix: np.ndarray) -> Dict[str, float]:
         """Calculate MC-STC from CR matrix using Monte Carlo method
         
+        Algorithm:
+        1. Generate N random spanning trees from the collaboration network
+        2. For each tree, calculate node importance
+        3. Average importance values across all sampled trees
+        
         Args:
             cr_matrix: Collaboration Relations matrix (m × m)
             
         Returns:
             Dictionary mapping developer index to MC-STC value
         """
-        # TODO: Implement MC-STC calculation
-        # For now, fallback to regular STC
-        return self.calculate_stc_from_cr(cr_matrix)
+        # Validate input
+        if not np.allclose(cr_matrix, cr_matrix.T):
+            raise ValueError("CR matrix must be symmetric")
+        
+        n = len(cr_matrix)
+        
+        # Check if graph is connected (has edges)
+        if np.sum(cr_matrix) == 0:
+            return {str(i): 0.0 for i in range(n)}
+        
+        # Accumulate importance values across iterations
+        cumulative_importance = {str(i): 0.0 for i in range(n)}
+        
+        # Monte Carlo sampling
+        for iteration in range(self.iterations):
+            # Generate random spanning tree
+            tree = self.generate_random_spanning_tree(cr_matrix)
+            
+            # Calculate node importance in this tree
+            tree_importance = self.calculate_node_importance_in_tree(tree)
+            
+            # Accumulate
+            for node_id, importance in tree_importance.items():
+                cumulative_importance[node_id] += importance
+        
+        # Average across iterations
+        mc_stc_values = {
+            node_id: importance / self.iterations 
+            for node_id, importance in cumulative_importance.items()
+        }
+        
+        return mc_stc_values
