@@ -63,7 +63,8 @@ Secuflow_Rebuild/
 │   ├── 📂 accounts/             # User management APIs
 │   ├── 📂 projects/             # Project management APIs
 │   ├── 📂 contributors/         # Contributor analysis APIs
-│   ├── 📂 coordination/         # Coordination analysis APIs
+│   ├── 📂 stc_analysis/         # STC/MC-STC analysis APIs
+│   ├── 📂 project_monitoring/   # Long-term STC tracking APIs
 │   ├── 📂 risks/               # Risk assessment APIs
 │   ├── 📂 tnm_integration/     # TNM tool integration
 │   ├── 📂 common/              # Shared utilities & middleware
@@ -254,7 +255,8 @@ The backend is built with Django REST Framework and provides comprehensive APIs 
 - **User Management** (`accounts/`) - Authentication, user profiles, Git credentials
 - **Project Management** (`projects/`) - Project lifecycle, membership, Git integration
 - **Contributors Analysis** (`contributors/`) - Developer contribution metrics
-- **Coordination Analysis** (`coordination/`) - Team coordination analysis
+- **STC Analysis** (`stc_analysis/`) - Socio-Technical Congruence analysis
+- **Project Monitoring** (`project_monitoring/`) - Long-term STC/MC-STC tracking
 - **Risk Assessment** (`risks/`) - Security and code quality analysis
 - **TNM Integration** (`tnm_integration/`) - Code analysis tool integration
 
@@ -271,6 +273,118 @@ The backend is built with Django REST Framework and provides comprehensive APIs 
 | **Coordination** | `/api/coordination/` | Team coordination |
 | **Risks** | `/api/risks/` | Risk assessment |
 | **TNM** | `/api/tnm/` | Code analysis |
+
+## 📊 Project Monitoring Module
+
+### Overview
+
+The Project Monitoring module tracks periodic STC (Socio-Technical Congruence) and MC-STC (Multi-Class STC) analysis results for projects. Users can only view monitoring data for projects they own or participate in.
+
+### Key Features
+
+✅ **Complete Data Model** - Records STC/MC-STC analysis history  
+✅ **RESTful API** - Provides full CRUD operations  
+✅ **Access Control** - Users can only access related projects  
+✅ **Statistics & Trends** - Project coordination health insights  
+✅ **Top Coordination Pairs** - Identifies top 10 coordination pairs with highest MC-STC impact  
+✅ **Subscription System** - User-customizable notification preferences  
+✅ **Test Coverage** - Comprehensive model and API tests  
+✅ **Docker Integration** - Runs properly in containerized environment  
+
+### API Endpoints
+
+#### Monitoring Records Management
+```http
+GET    /api/project-monitoring/monitoring/
+POST   /api/project-monitoring/monitoring/
+GET    /api/project-monitoring/monitoring/{id}/
+PUT    /api/project-monitoring/monitoring/{id}/
+DELETE /api/project-monitoring/monitoring/{id}/
+```
+
+**Query Parameters:**
+- `project_id`: Filter by project ID
+- `analysis_type`: Filter by analysis type (`stc` | `mc_stc`)
+- `status`: Filter by status (`pending` | `running` | `completed` | `failed`)
+- `date_from`: Start date filter
+- `date_to`: End date filter
+
+#### Statistics and Trends
+```http
+GET /api/project-monitoring/monitoring/project_stats/
+GET /api/project-monitoring/monitoring/project_trends/?project_id={uuid}&days={int}
+GET /api/project-monitoring/monitoring/top_coordination_pairs/?project_id={uuid}&top_n={int}
+```
+
+#### Analysis Management
+```http
+POST /api/project-monitoring/create-analysis/
+GET /api/project-monitoring/check-access/{project_id}/
+```
+
+### Usage Examples
+
+#### Get Top Coordination Pairs
+```bash
+GET /api/project-monitoring/monitoring/top_coordination_pairs/?project_id=uuid&top_n=5
+
+Response:
+{
+    "succeed": true,
+    "data": {
+        "project_id": "uuid",
+        "project_name": "Test Project",
+        "analysis_id": "uuid",
+        "stc_value": 0.75,
+        "total_pairs": 5,
+        "coordination_pairs": [
+            {
+                "developer_id": "1",
+                "developer_info": "alice@dev.com",
+                "security_id": "2",
+                "security_info": "bob@security.com",
+                "required_coordination": 5.0,
+                "actual_coordination": 2.0,
+                "coordination_gap": 3.0,
+                "is_missed_coordination": false,
+                "impact_score": 8.0,
+                "pair_name": "alice@dev.com ↔ bob@security.com"
+            }
+        ]
+    }
+}
+```
+
+#### Get Project Statistics
+```bash
+GET /api/project-monitoring/monitoring/project_stats/
+
+Response:
+{
+    "succeed": true,
+    "data": [
+        {
+            "project_id": "uuid",
+            "project_name": "Test Project",
+            "total_analyses": 5,
+            "completed_analyses": 4,
+            "latest_stc_value": 0.75,
+            "avg_stc_value": 0.72,
+            "trend_direction": "improving"
+        }
+    ]
+}
+```
+
+### Testing
+
+```bash
+# Run all project monitoring tests
+docker-compose exec backend python manage.py test project_monitoring
+
+# Run coordination pairs tests
+docker-compose exec backend python manage.py test project_monitoring.test_coordination_pairs
+```
 
 ### Authentication
 
