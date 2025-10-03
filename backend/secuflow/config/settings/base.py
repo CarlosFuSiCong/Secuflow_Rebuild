@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'contributors',
     'tnm_integration',
     'stc_analysis',
+    'project_monitoring',
 ]
 
 MIDDLEWARE = [
