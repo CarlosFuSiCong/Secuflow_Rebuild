@@ -43,9 +43,10 @@ Role Hierarchy:
 
 import logging
 from rest_framework import viewsets, status, permissions
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
 from django.db.models import Count, Q
 from accounts.models import User
 from django.shortcuts import get_object_or_404
@@ -988,3 +989,416 @@ class ProjectMemberViewSet(viewsets.ModelViewSet):
             )
         
         return super().destroy(request, *args, **kwargs)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cleanup_tnm_data(request, project_id=None):
+    """
+    Clean up TNM output and repository data.
+    
+    POST /api/projects/cleanup-tnm-data/                    # Clean all data (admin only)
+    POST /api/projects/projects/{project_id}/cleanup-tnm/  # Clean specific project data
+    
+    Body: {
+        "cleanup_type": "output" | "repositories" | "all",  # What to clean
+        "confirm": true,                                     # Confirmation flag
+        "older_than_days": 7                                # Optional: only clean files older than N days
+    }
+    """
+    import os
+    import shutil
+    from datetime import datetime, timedelta
+    from django.conf import settings
+    
+    try:
+        # Parse request data
+        cleanup_type = request.data.get('cleanup_type', 'all')
+        confirm = request.data.get('confirm', False)
+        older_than_days = request.data.get('older_than_days')
+        
+        if not confirm:
+            return ApiResponse.error(
+                error_message="Cleanup requires confirmation. Set 'confirm': true in request body.",
+                error_code="CONFIRMATION_REQUIRED"
+            )
+        
+        # Check permissions
+        if project_id:
+            # Project-specific cleanup - check project access
+            try:
+                project = Project.objects.get(id=project_id, deleted_at__isnull=True)
+                user_profile = request.user.profile
+                
+                if not (project.owner_profile == user_profile or 
+                        project.members.filter(profile=user_profile).exists()):
+                    return ApiResponse.forbidden("You don't have access to this project")
+                    
+            except Project.DoesNotExist:
+                return ApiResponse.not_found("Project not found")
+        else:
+            # Global cleanup - admin only
+            if not request.user.is_staff:
+                return ApiResponse.forbidden("Only administrators can perform global cleanup")
+        
+        # Define paths
+        tnm_output_dir = getattr(settings, 'TNM_OUTPUT_DIR', '/app/tnm_output')
+        tnm_repos_dir = getattr(settings, 'TNM_REPOSITORIES_DIR', '/app/tnm_repositories')
+        
+        # If running locally, use backend paths
+        if not os.path.exists(tnm_output_dir):
+            tnm_output_dir = os.path.join(os.path.dirname(settings.BASE_DIR), 'tnm_output')
+        if not os.path.exists(tnm_repos_dir):
+            tnm_repos_dir = os.path.join(os.path.dirname(settings.BASE_DIR), 'tnm_repositories')
+        
+        cleanup_results = {
+            'output_cleaned': False,
+            'repositories_cleaned': False,
+            'files_removed': 0,
+            'directories_removed': 0,
+            'total_size_freed_mb': 0
+        }
+        
+        # Calculate cutoff time if older_than_days is specified
+        cutoff_time = None
+        if older_than_days:
+            cutoff_time = datetime.now() - timedelta(days=older_than_days)
+        
+        # Helper function to check if path should be cleaned
+        def should_clean_path(path):
+            if not cutoff_time:
+                return True
+            try:
+                mtime = datetime.fromtimestamp(os.path.getmtime(path))
+                return mtime < cutoff_time
+            except:
+                return True
+        
+        # Helper function to calculate directory size
+        def get_dir_size(path):
+            total_size = 0
+            try:
+                for dirpath, dirnames, filenames in os.walk(path):
+                    for filename in filenames:
+                        filepath = os.path.join(dirpath, filename)
+                        if os.path.exists(filepath):
+                            total_size += os.path.getsize(filepath)
+            except:
+                pass
+            return total_size
+        
+        # Clean TNM output
+        if cleanup_type in ['output', 'all']:
+            if project_id:
+                # Clean specific project output
+                project_pattern = f"project_{project_id}_*"
+                output_path = tnm_output_dir
+                
+                if os.path.exists(output_path):
+                    for item in os.listdir(output_path):
+                        item_path = os.path.join(output_path, item)
+                        if (item.startswith(f"project_{project_id}_") and 
+                            should_clean_path(item_path)):
+                            
+                            if os.path.isdir(item_path):
+                                size_before = get_dir_size(item_path)
+                                shutil.rmtree(item_path)
+                                cleanup_results['directories_removed'] += 1
+                                cleanup_results['total_size_freed_mb'] += size_before / (1024 * 1024)
+                            else:
+                                size_before = os.path.getsize(item_path)
+                                os.remove(item_path)
+                                cleanup_results['files_removed'] += 1
+                                cleanup_results['total_size_freed_mb'] += size_before / (1024 * 1024)
+            else:
+                # Clean all output
+                if os.path.exists(tnm_output_dir):
+                    for item in os.listdir(tnm_output_dir):
+                        if item in ['.', '..', 'README.md']:
+                            continue
+                            
+                        item_path = os.path.join(tnm_output_dir, item)
+                        if should_clean_path(item_path):
+                            if os.path.isdir(item_path):
+                                size_before = get_dir_size(item_path)
+                                shutil.rmtree(item_path)
+                                cleanup_results['directories_removed'] += 1
+                                cleanup_results['total_size_freed_mb'] += size_before / (1024 * 1024)
+                            else:
+                                size_before = os.path.getsize(item_path)
+                                os.remove(item_path)
+                                cleanup_results['files_removed'] += 1
+                                cleanup_results['total_size_freed_mb'] += size_before / (1024 * 1024)
+            
+            cleanup_results['output_cleaned'] = True
+        
+        # Clean TNM repositories
+        if cleanup_type in ['repositories', 'all']:
+            if project_id:
+                # Clean specific project repository
+                repo_path = os.path.join(tnm_repos_dir, f"project_{project_id}")
+                if os.path.exists(repo_path) and should_clean_path(repo_path):
+                    size_before = get_dir_size(repo_path)
+                    shutil.rmtree(repo_path)
+                    cleanup_results['directories_removed'] += 1
+                    cleanup_results['total_size_freed_mb'] += size_before / (1024 * 1024)
+            else:
+                # Clean all repositories
+                if os.path.exists(tnm_repos_dir):
+                    for item in os.listdir(tnm_repos_dir):
+                        if item in ['.', '..', 'README.md']:
+                            continue
+                            
+                        item_path = os.path.join(tnm_repos_dir, item)
+                        if should_clean_path(item_path):
+                            if os.path.isdir(item_path):
+                                size_before = get_dir_size(item_path)
+                                shutil.rmtree(item_path)
+                                cleanup_results['directories_removed'] += 1
+                                cleanup_results['total_size_freed_mb'] += size_before / (1024 * 1024)
+                            else:
+                                size_before = os.path.getsize(item_path)
+                                os.remove(item_path)
+                                cleanup_results['files_removed'] += 1
+                                cleanup_results['total_size_freed_mb'] += size_before / (1024 * 1024)
+            
+            cleanup_results['repositories_cleaned'] = True
+        
+        # Round the size
+        cleanup_results['total_size_freed_mb'] = round(cleanup_results['total_size_freed_mb'], 2)
+        
+        logger.info(f"TNM cleanup completed", extra={
+            'user_id': request.user.id,
+            'project_id': project_id,
+            'cleanup_type': cleanup_type,
+            'results': cleanup_results
+        })
+        
+        message = f"Cleanup completed. Removed {cleanup_results['files_removed']} files and {cleanup_results['directories_removed']} directories, freed {cleanup_results['total_size_freed_mb']} MB"
+        
+        return ApiResponse.success(
+            data=cleanup_results,
+            message=message
+        )
+        
+    except Exception as e:
+        logger.error(f"TNM cleanup failed: {e}", extra={
+            'user_id': request.user.id,
+            'project_id': project_id
+        }, exc_info=True)
+        return ApiResponse.internal_error(
+            error_message="Failed to cleanup TNM data",
+            error_code="CLEANUP_ERROR"
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def auto_cleanup_tnm_data(request):
+    """
+    Automatic cleanup of old TNM data based on configurable rules.
+    
+    POST /api/projects/auto-cleanup-tnm/
+    
+    Body: {
+        "dry_run": false,                    # If true, only report what would be cleaned
+        "output_retention_days": 30,        # Keep output files for N days
+        "repository_retention_days": 7,     # Keep repository clones for N days
+        "max_total_size_gb": 10             # Clean oldest files if total size exceeds N GB
+    }
+    """
+    import os
+    import shutil
+    from datetime import datetime, timedelta
+    from django.conf import settings
+    
+    try:
+        # Parse request data
+        dry_run = request.data.get('dry_run', False)
+        output_retention_days = request.data.get('output_retention_days', 30)
+        repository_retention_days = request.data.get('repository_retention_days', 7)
+        max_total_size_gb = request.data.get('max_total_size_gb', 10)
+        
+        # Only admins can run auto cleanup
+        if not request.user.is_staff:
+            return ApiResponse.forbidden("Only administrators can run auto cleanup")
+        
+        # Define paths
+        tnm_output_dir = getattr(settings, 'TNM_OUTPUT_DIR', '/app/tnm_output')
+        tnm_repos_dir = getattr(settings, 'TNM_REPOSITORIES_DIR', '/app/tnm_repositories')
+        
+        # If running locally, use backend paths
+        if not os.path.exists(tnm_output_dir):
+            tnm_output_dir = os.path.join(os.path.dirname(settings.BASE_DIR), 'tnm_output')
+        if not os.path.exists(tnm_repos_dir):
+            tnm_repos_dir = os.path.join(os.path.dirname(settings.BASE_DIR), 'tnm_repositories')
+        
+        cleanup_plan = {
+            'output_files_to_clean': [],
+            'repository_dirs_to_clean': [],
+            'total_size_to_free_mb': 0,
+            'current_total_size_gb': 0
+        }
+        
+        # Helper functions
+        def get_dir_size(path):
+            total_size = 0
+            try:
+                for dirpath, dirnames, filenames in os.walk(path):
+                    for filename in filenames:
+                        filepath = os.path.join(dirpath, filename)
+                        if os.path.exists(filepath):
+                            total_size += os.path.getsize(filepath)
+            except:
+                pass
+            return total_size
+        
+        def get_path_info(path):
+            try:
+                stat = os.stat(path)
+                return {
+                    'path': path,
+                    'size_mb': (stat.st_size if os.path.isfile(path) else get_dir_size(path)) / (1024 * 1024),
+                    'modified_time': datetime.fromtimestamp(stat.st_mtime),
+                    'age_days': (datetime.now() - datetime.fromtimestamp(stat.st_mtime)).days
+                }
+            except:
+                return None
+        
+        # Calculate current total size
+        total_size = 0
+        if os.path.exists(tnm_output_dir):
+            total_size += get_dir_size(tnm_output_dir)
+        if os.path.exists(tnm_repos_dir):
+            total_size += get_dir_size(tnm_repos_dir)
+        
+        cleanup_plan['current_total_size_gb'] = round(total_size / (1024 * 1024 * 1024), 2)
+        
+        # Find old output files
+        output_cutoff = datetime.now() - timedelta(days=output_retention_days)
+        if os.path.exists(tnm_output_dir):
+            for item in os.listdir(tnm_output_dir):
+                if item in ['.', '..', 'README.md']:
+                    continue
+                    
+                item_path = os.path.join(tnm_output_dir, item)
+                info = get_path_info(item_path)
+                
+                if info and info['modified_time'] < output_cutoff:
+                    cleanup_plan['output_files_to_clean'].append(info)
+                    cleanup_plan['total_size_to_free_mb'] += info['size_mb']
+        
+        # Find old repository directories
+        repo_cutoff = datetime.now() - timedelta(days=repository_retention_days)
+        if os.path.exists(tnm_repos_dir):
+            for item in os.listdir(tnm_repos_dir):
+                if item in ['.', '..', 'README.md']:
+                    continue
+                    
+                item_path = os.path.join(tnm_repos_dir, item)
+                info = get_path_info(item_path)
+                
+                if info and info['modified_time'] < repo_cutoff:
+                    cleanup_plan['repository_dirs_to_clean'].append(info)
+                    cleanup_plan['total_size_to_free_mb'] += info['size_mb']
+        
+        # If total size exceeds limit, add more files to cleanup (oldest first)
+        if cleanup_plan['current_total_size_gb'] > max_total_size_gb:
+            # Collect all files with their info
+            all_files = []
+            
+            # Add remaining output files
+            if os.path.exists(tnm_output_dir):
+                for item in os.listdir(tnm_output_dir):
+                    if item in ['.', '..', 'README.md']:
+                        continue
+                    item_path = os.path.join(tnm_output_dir, item)
+                    info = get_path_info(item_path)
+                    if info and info not in cleanup_plan['output_files_to_clean']:
+                        all_files.append(('output', info))
+            
+            # Add remaining repository directories
+            if os.path.exists(tnm_repos_dir):
+                for item in os.listdir(tnm_repos_dir):
+                    if item in ['.', '..', 'README.md']:
+                        continue
+                    item_path = os.path.join(tnm_repos_dir, item)
+                    info = get_path_info(item_path)
+                    if info and info not in cleanup_plan['repository_dirs_to_clean']:
+                        all_files.append(('repository', info))
+            
+            # Sort by age (oldest first)
+            all_files.sort(key=lambda x: x[1]['modified_time'])
+            
+            # Add files until we're under the size limit
+            target_size_gb = max_total_size_gb * 0.8  # Clean to 80% of limit
+            current_size_gb = cleanup_plan['current_total_size_gb']
+            
+            for file_type, info in all_files:
+                if current_size_gb <= target_size_gb:
+                    break
+                
+                if file_type == 'output':
+                    cleanup_plan['output_files_to_clean'].append(info)
+                else:
+                    cleanup_plan['repository_dirs_to_clean'].append(info)
+                
+                cleanup_plan['total_size_to_free_mb'] += info['size_mb']
+                current_size_gb -= info['size_mb'] / 1024
+        
+        # Round the size
+        cleanup_plan['total_size_to_free_mb'] = round(cleanup_plan['total_size_to_free_mb'], 2)
+        
+        # Execute cleanup if not dry run
+        if not dry_run and (cleanup_plan['output_files_to_clean'] or cleanup_plan['repository_dirs_to_clean']):
+            files_removed = 0
+            directories_removed = 0
+            
+            # Clean output files
+            for info in cleanup_plan['output_files_to_clean']:
+                try:
+                    if os.path.isdir(info['path']):
+                        shutil.rmtree(info['path'])
+                        directories_removed += 1
+                    else:
+                        os.remove(info['path'])
+                        files_removed += 1
+                except Exception as e:
+                    logger.warning(f"Failed to remove {info['path']}: {e}")
+            
+            # Clean repository directories
+            for info in cleanup_plan['repository_dirs_to_clean']:
+                try:
+                    if os.path.isdir(info['path']):
+                        shutil.rmtree(info['path'])
+                        directories_removed += 1
+                    else:
+                        os.remove(info['path'])
+                        files_removed += 1
+                except Exception as e:
+                    logger.warning(f"Failed to remove {info['path']}: {e}")
+            
+            cleanup_plan['files_removed'] = files_removed
+            cleanup_plan['directories_removed'] = directories_removed
+        
+        logger.info(f"Auto cleanup {'planned' if dry_run else 'completed'}", extra={
+            'user_id': request.user.id,
+            'dry_run': dry_run,
+            'plan': cleanup_plan
+        })
+        
+        message = f"Auto cleanup {'plan' if dry_run else 'completed'}. Would {'free' if dry_run else 'Freed'} {cleanup_plan['total_size_to_free_mb']} MB"
+        
+        return ApiResponse.success(
+            data=cleanup_plan,
+            message=message
+        )
+        
+    except Exception as e:
+        logger.error(f"Auto cleanup failed: {e}", extra={
+            'user_id': request.user.id
+        }, exc_info=True)
+        return ApiResponse.internal_error(
+            error_message="Failed to run auto cleanup",
+            error_code="AUTO_CLEANUP_ERROR"
+        )
