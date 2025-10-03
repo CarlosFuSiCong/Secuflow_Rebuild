@@ -9,6 +9,7 @@ from .models import Contributor, ProjectContributor
 from projects.models import Project
 from .enums import FunctionalRole
 from .services import TNMDataAnalysisService
+from .tasks import start_tnm_contributor_analysis_async, get_task_status
 from rest_framework import serializers
 from common.response import ApiResponse
 from common.pagination import DefaultPagination
@@ -380,8 +381,12 @@ def analyze_tnm_contributors(request, project_id):
     POST /api/contributors/projects/{project_id}/analyze_tnm/
     Body: {
         "tnm_output_dir": "/path/to/tnm/output", (optional, auto-detected)
-        "branch": "main" (optional)
+        "branch": "main", (optional)
+        "async": true (optional, default: false for small projects, true for large projects)
     }
+    
+    For large projects (>50 contributors estimated), analysis runs asynchronously by default.
+    Use "async": false to force synchronous analysis for small projects.
     """
     try:
         # Get project and verify permissions
@@ -396,7 +401,12 @@ def analyze_tnm_contributors(request, project_id):
         # Get TNM output directory
         payload = request.data or {}
         tnm_output_dir = payload.get('tnm_output_dir')
-        branch = payload.get('branch', 'unknown')
+        branch = payload.get('branch')
+        force_async = payload.get('async')
+        
+        # Use project's default branch if no branch specified
+        if not branch:
+            branch = project.default_branch or 'main'
         
         # Auto-detect TNM output directory if not provided
         if not tnm_output_dir:
@@ -409,21 +419,44 @@ def analyze_tnm_contributors(request, project_id):
                 error_code="TNM_OUTPUT_NOT_FOUND"
             )
         
-        # Analyze TNM data
-        analysis_result = TNMDataAnalysisService.analyze_assignment_matrix(
-            project, tnm_output_dir, branch
-        )
+        # Determine if we should use async processing
+        should_use_async = _should_use_async_analysis(tnm_output_dir, force_async)
         
-        logger.info(f"TNM contributor analysis completed for project {project.id}", extra={
-            'project_id': project_id,
-            'user_id': request.user.id,
-            'contributors_processed': analysis_result['total_contributors']
-        })
-        
-        return ApiResponse.success(
-            data=analysis_result,
-            message=f"Analyzed {analysis_result['total_contributors']} contributors from TNM data"
-        )
+        if should_use_async:
+            # Start asynchronous analysis
+            task_info = start_tnm_contributor_analysis_async(
+                project_id=project_id,
+                tnm_output_dir=tnm_output_dir,
+                branch=branch,
+                user_id=str(request.user.id)
+            )
+            
+            logger.info(f"Started async TNM contributor analysis for project {project.id}", extra={
+                'project_id': project_id,
+                'user_id': request.user.id,
+                'task_id': task_info['task_id']
+            })
+            
+            return ApiResponse.success(
+                data=task_info,
+                message="Large project detected. TNM contributor analysis started in background. Use the task_id to check progress."
+            )
+        else:
+            # Run synchronous analysis for small projects
+            analysis_result = TNMDataAnalysisService.analyze_assignment_matrix(
+                project, tnm_output_dir, branch
+            )
+            
+            logger.info(f"TNM contributor analysis completed for project {project.id}", extra={
+                'project_id': project_id,
+                'user_id': request.user.id,
+                'contributors_processed': analysis_result['total_contributors']
+            })
+            
+            return ApiResponse.success(
+                data=analysis_result,
+                message=f"Analyzed {analysis_result['total_contributors']} contributors from TNM data"
+            )
         
     except Project.DoesNotExist:
         return ApiResponse.not_found("Project not found")
@@ -584,4 +617,132 @@ def functional_role_choices(request):
         return ApiResponse.internal_error(
             error_message="Failed to retrieve role choices",
             error_code="ROLE_CHOICES_ERROR"
+        )
+
+
+def _should_use_async_analysis(tnm_output_dir: str, force_async: bool = None) -> bool:
+    """
+    Determine if async analysis should be used based on project size.
+    
+    Args:
+        tnm_output_dir: Path to TNM output directory
+        force_async: Force async (True) or sync (False), None for auto-detect
+        
+    Returns:
+        bool: True if async analysis should be used
+    """
+    if force_async is not None:
+        return force_async
+    
+    try:
+        # Check idToUser.json file size to estimate contributor count
+        id_to_user_path = os.path.join(tnm_output_dir, 'idToUser.json')
+        if not os.path.exists(id_to_user_path):
+            return False  # Can't determine size, use sync
+        
+        # Load and count contributors
+        import json
+        with open(id_to_user_path, 'r', encoding='utf-8') as f:
+            id_to_user = json.load(f)
+        
+        contributor_count = len(id_to_user)
+        
+        # Use async for projects with >50 contributors
+        return contributor_count > 50
+        
+    except Exception as e:
+        logger.warning(f"Failed to determine project size for async decision: {e}")
+        return False  # Default to sync if we can't determine
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_analysis_task_status(request, task_id):
+    """
+    Get the status of an asynchronous analysis task.
+    
+    GET /api/contributors/tasks/{task_id}/status/
+    """
+    try:
+        task_status = get_task_status(task_id)
+        
+        if not task_status:
+            return ApiResponse.not_found(
+                error_message="Task not found",
+                error_code="TASK_NOT_FOUND"
+            )
+        
+        # Check if user has permission to view this task
+        if hasattr(request.user, 'profile'):
+            user_id = str(request.user.id)
+            # For now, allow any authenticated user to check task status
+            # In production, you might want to check if user has access to the project
+        
+        return ApiResponse.success(
+            data=task_status,
+            message=f"Task status: {task_status['status']}"
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to get task status for {task_id}: {e}", exc_info=True)
+        return ApiResponse.internal_error(
+            error_message="Failed to retrieve task status",
+            error_code="TASK_STATUS_ERROR"
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_analysis_tasks(request):
+    """
+    List analysis tasks for the current user.
+    
+    GET /api/contributors/tasks/
+    Query params: status, project_id
+    """
+    try:
+        from .tasks import AsyncTaskManager
+        
+        # Get all tasks (in production, you'd filter by user)
+        all_tasks = AsyncTaskManager._tasks.values()
+        
+        # Filter by status if provided
+        status_filter = request.GET.get('status')
+        if status_filter:
+            all_tasks = [t for t in all_tasks if t['status'] == status_filter]
+        
+        # Filter by project_id if provided
+        project_id_filter = request.GET.get('project_id')
+        if project_id_filter:
+            all_tasks = [t for t in all_tasks if t['project_id'] == project_id_filter]
+        
+        # Sort by created_at descending
+        tasks = sorted(all_tasks, key=lambda x: x['created_at'], reverse=True)
+        
+        # Convert to serializable format
+        task_list = []
+        for task in tasks:
+            task_data = {
+                'task_id': task['id'],
+                'type': task['type'],
+                'project_id': task['project_id'],
+                'status': task['status'],
+                'progress': task['progress'],
+                'created_at': task['created_at'],
+                'started_at': task['started_at'],
+                'completed_at': task['completed_at'],
+                'error': task['error']
+            }
+            task_list.append(task_data)
+        
+        return ApiResponse.success(
+            data={'tasks': task_list, 'count': len(task_list)},
+            message=f"Retrieved {len(task_list)} tasks"
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to list analysis tasks: {e}", exc_info=True)
+        return ApiResponse.internal_error(
+            error_message="Failed to retrieve tasks",
+            error_code="TASKS_LIST_ERROR"
         )
