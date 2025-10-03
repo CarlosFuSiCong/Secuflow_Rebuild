@@ -5,10 +5,19 @@ from django.db import models
 class FunctionalRole(models.TextChoices):
     """
     Functional roles for contributors in MC-STC analysis.
-    MVP version with simplified classification.
+    
+    Represents the functional team/class a contributor belongs to:
+    - DEVELOPER: Regular development team members (business logic, features)
+    - SECURITY: Security team members (security reviews, vulnerability fixes)
+    - OPS: Operations/DevOps team members (infrastructure, deployment)
+    - UNCLASSIFIED: Role not yet determined
+    
+    Used for Multi-Class Socio-Technical Congruence (MC-STC) calculations
+    to measure inter-team coordination effectiveness.
     """
-    CODER = 'coder', 'Coder'
-    REVIEWER = 'reviewer', 'Reviewer' 
+    DEVELOPER = 'developer', 'Developer'
+    SECURITY = 'security', 'Security'
+    OPS = 'ops', 'Operations'
     UNCLASSIFIED = 'unclassified', 'Unclassified'
 
     @classmethod
@@ -28,6 +37,14 @@ class FunctionalRole(models.TextChoices):
     def is_valid_role(cls, role):
         """Check if a role value is valid."""
         return role in [choice[0] for choice in cls.choices]
+    
+    @classmethod
+    def get_dev_sec_classes(cls):
+        """Get the two main classes for 2C-STC (Dev-Sec) analysis."""
+        return {
+            'developer': cls.DEVELOPER,
+            'security': cls.SECURITY
+        }
 
 
 class ActivityLevel(Enum):

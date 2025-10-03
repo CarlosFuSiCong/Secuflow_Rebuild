@@ -1,368 +1,328 @@
 import numpy as np
 from typing import Dict, List, Optional, Tuple, Set
-from scipy import linalg
 from stc_analysis.models import STCAnalysis
-import random
+
 
 class STCService:
-    """Service for STC (Spanning Tree Centrality) calculations
+    """Service for STC (Socio-Technical Congruence) calculations
     
-    STC uses:
-    - CA (Contribution Assignment) Matrix: developers × files contribution matrix
-    - CR (Collaboration Relations) Matrix: CR = CA × CA^T, represents developer collaboration network
+    STC measures the alignment between coordination requirements and actual coordination:
     
-    The STC algorithm operates on the CR matrix (developer collaboration network).
+    Variables:
+    - CR (Coordination Requirements): m × m matrix representing who needs to coordinate
+      (derived from technical dependencies: CR = Assignment @ Dependency @ Assignment^T)
+    - CA (Coordination Actuals): m × m matrix representing who actually coordinates
+      (derived from communication/collaboration data, e.g., co-editing files)
+    
+    Formula:
+    STC = |CR ∩ CA| / |CR|
+    
+    Where:
+    - |CR ∩ CA| = number of edges where coordination is both required and actual
+    - |CR| = total number of edges where coordination is required
+    - Range: [0, 1], higher means better socio-technical alignment
     """
     
-    def __init__(self, project_id: str):
+    def __init__(self, project_id: str, threshold: float = 0):
+        """
+        Args:
+            project_id: Project identifier
+            threshold: Threshold for filtering weak connections (default: 0)
+        """
         self.project_id = project_id
+        self.threshold = threshold
     
-    def calculate_cr_matrix(self, ca_matrix: np.ndarray) -> np.ndarray:
-        """Calculate CR (Collaboration Relations) matrix from CA matrix
+    def calculate_cr_from_assignment_dependency(
+        self, 
+        assignment_matrix: np.ndarray, 
+        dependency_matrix: np.ndarray
+    ) -> np.ndarray:
+        """Calculate CR (Coordination Requirements) from assignment and dependency matrices
         
-        CR = CA × CA^T
+        Formula: CR = Assignment @ Dependency @ Assignment^T
         
         Args:
-            ca_matrix: Contribution Assignment matrix (m × n), where:
-                       m = number of developers
-                       n = number of files
+            assignment_matrix: m × n matrix (developers × files)
+            dependency_matrix: n × n matrix (file dependencies)
         
         Returns:
-            CR matrix (m × m), representing collaboration strength between developers
+            CR matrix (m × m) representing coordination requirements
         """
-        # Calculate CR = CA × CA^T
-        cr_matrix = np.dot(ca_matrix, ca_matrix.T)
+        # Calculate coordination requirement
+        cr_matrix = assignment_matrix @ dependency_matrix @ assignment_matrix.T
+        
+        # Apply threshold
+        if self.threshold > 0:
+            cr_matrix = np.where(cr_matrix > self.threshold, 1, 0)
+        else:
+            # Binary threshold: > 0 means coordination is required
+            cr_matrix = np.where(cr_matrix > 0, 1, 0)
+        
+        # Remove self-loops (diagonal)
+        np.fill_diagonal(cr_matrix, 0)
+        
         return cr_matrix
+    
+    def calculate_ca_from_file_modifiers(
+        self, 
+        file_modifiers: Dict[str, Set[str]], 
+        all_users: List[str]
+    ) -> np.ndarray:
+        """Calculate CA (Coordination Actuals) from file modifier data
         
-    def calculate_kirchhoff_matrix(self, adjacency_matrix: np.ndarray) -> np.ndarray:
-        """Calculate Kirchhoff matrix (Laplacian matrix) from CR matrix
-        
-        The Kirchhoff matrix (also known as Laplacian matrix) is calculated as:
-        L = D - A, where:
-        - D is the degree matrix (diagonal matrix with vertex degrees)
-        - A is the adjacency matrix (CR matrix in STC context - collaboration network)
+        If two developers modify the same file, they have actual coordination.
         
         Args:
-            adjacency_matrix: CR matrix representing developer collaboration network
+            file_modifiers: Dictionary mapping file_id to set of user_ids who modified it
+            all_users: List of all user IDs
         
         Returns:
-            Kirchhoff (Laplacian) matrix
+            CA matrix (m × m) representing actual coordination
         """
-        # Calculate degree matrix (sum of each row)
-        degrees = np.sum(adjacency_matrix, axis=1)
-        degree_matrix = np.diag(degrees)
+        n = len(all_users)
+        ca_matrix = np.zeros((n, n))
         
-        # Calculate Kirchhoff matrix
-        kirchhoff_matrix = degree_matrix - adjacency_matrix
+        # Create user index mapping
+        user_indices = {user_id: idx for idx, user_id in enumerate(all_users)}
         
-        return kirchhoff_matrix
-    
-    def calculate_cofactor(self, matrix: np.ndarray, i: int, j: int) -> float:
-        """Calculate cofactor of matrix element (i,j)"""
-        # Remove i-th row and j-th column
-        submatrix = np.delete(np.delete(matrix, i, 0), j, 1)
-        # Calculate determinant of submatrix
-        return linalg.det(submatrix)
-    
-    def calculate_spanning_tree_count(self, kirchhoff_matrix: np.ndarray) -> float:
-        """Calculate the total number of spanning trees using Kirchhoff's theorem
+        # For each file, mark coordination between all pairs of modifiers
+        for modifiers in file_modifiers.values():
+            indices = [user_indices[user_id] for user_id in modifiers if user_id in user_indices]
+            for i in indices:
+                for j in indices:
+                    if i != j:
+                        ca_matrix[i][j] = 1
         
-        According to Kirchhoff's theorem, the number of spanning trees is equal to
-        any cofactor of the Laplacian matrix.
-        """
-        # We use the (0,0) cofactor by convention
-        return self.calculate_cofactor(kirchhoff_matrix, 0, 0)
+        # Remove self-loops (diagonal)
+        np.fill_diagonal(ca_matrix, 0)
+        
+        return ca_matrix
     
-    def calculate_edge_participation(self, adjacency_matrix: np.ndarray, 
-                                   kirchhoff_matrix: np.ndarray) -> np.ndarray:
-        """Calculate the participation of each edge in spanning trees
+    def calculate_stc(self, cr_matrix: np.ndarray, ca_matrix: np.ndarray) -> float:
+        """Calculate STC (Socio-Technical Congruence)
+        
+        Formula: STC = |CR ∩ CA| / |CR|
         
         Args:
-            adjacency_matrix: CR matrix (collaboration network adjacency matrix)
-            kirchhoff_matrix: Kirchhoff (Laplacian) matrix
+            cr_matrix: Coordination Requirements matrix (m × m)
+            ca_matrix: Coordination Actuals matrix (m × m)
         
         Returns:
-            Edge participation matrix
+            STC value in range [0, 1]
         """
-        n = len(adjacency_matrix)
-        edge_participation = np.zeros_like(adjacency_matrix, dtype=float)
+        # Ensure matrices have the same shape
+        if cr_matrix.shape != ca_matrix.shape:
+            raise ValueError("CR and CA matrices must have the same shape")
         
-        for i in range(n):
-            for j in range(i+1, n):
-                if adjacency_matrix[i,j] > 0:
-                    # Calculate participation using the formula:
-                    # P(e) = w(e) * K(i,i) * K(j,j) - w(e) * K(i,j) * K(j,i)
-                    # where K is the Kirchhoff matrix and w(e) is the edge weight
-                    weight = adjacency_matrix[i,j]
-                    participation = (weight * kirchhoff_matrix[i,i] * kirchhoff_matrix[j,j] - 
-                                   weight * kirchhoff_matrix[i,j] * kirchhoff_matrix[j,i])
-                    edge_participation[i,j] = participation
-                    edge_participation[j,i] = participation
-                    
-        return edge_participation
+        # Remove diagonal (no self-coordination)
+        mask_no_diagonal = ~np.eye(len(cr_matrix), dtype=bool)
         
-    def calculate_stc_from_ca(self, ca_matrix: np.ndarray) -> Dict[str, float]:
-        """Calculate STC values from CA (Contribution Assignment) matrix
+        # Calculate intersection: edges that are in both CR and CA
+        intersection_mask = (cr_matrix > 0) & (ca_matrix > 0) & mask_no_diagonal
+        intersection_count = np.sum(intersection_mask)
         
-        Steps:
-        1. Calculate CR matrix (collaboration network) from CA matrix
-        2. Calculate STC on the CR matrix
+        # Calculate total required coordination edges
+        required_mask = (cr_matrix > 0) & mask_no_diagonal
+        required_count = np.sum(required_mask)
         
-        Args:
-            ca_matrix: Contribution Assignment matrix (m × n)
+        # Calculate STC
+        if required_count == 0:
+            return 0.0
         
-        Returns:
-            Dictionary mapping developer index to STC value
-        """
-        # Calculate CR matrix (developer collaboration network)
-        cr_matrix = self.calculate_cr_matrix(ca_matrix)
-        
-        # Calculate STC on CR matrix
-        return self.calculate_stc_from_cr(cr_matrix)
+        stc = intersection_count / required_count
+        return float(stc)
     
-    def calculate_stc_from_cr(self, cr_matrix: np.ndarray) -> Dict[str, float]:
-        """Calculate STC values from CR (Collaboration Relations) matrix
-        
-        Steps:
-        1. Calculate Kirchhoff matrix
-        2. Calculate total number of spanning trees
-        3. Calculate edge participation in spanning trees
-        4. Calculate node STC values
-        
-        Args:
-            cr_matrix: Collaboration Relations matrix (m × m), must be symmetric
+    def get_missed_coordination(
+        self, 
+        cr_matrix: np.ndarray, 
+        ca_matrix: np.ndarray
+    ) -> np.ndarray:
+        """Get edges where coordination is required but not actual
         
         Returns:
-            Dictionary mapping developer index to STC value
+            Matrix of missed coordination edges (CR - CA intersection)
         """
-        # Ensure matrix is symmetric
-        if not np.allclose(cr_matrix, cr_matrix.T):
-            raise ValueError("CR matrix must be symmetric")
+        mask_no_diagonal = ~np.eye(len(cr_matrix), dtype=bool)
+        missed = (cr_matrix > 0) & (ca_matrix == 0) & mask_no_diagonal
+        return missed.astype(int)
+    
+    def get_unnecessary_coordination(
+        self, 
+        cr_matrix: np.ndarray, 
+        ca_matrix: np.ndarray
+    ) -> np.ndarray:
+        """Get edges where coordination is actual but not required
         
-        # Ensure matrix is non-negative
-        if np.any(cr_matrix < 0):
-            raise ValueError("CR matrix must contain non-negative values")
-            
-        # Calculate Kirchhoff matrix
-        kirchhoff_matrix = self.calculate_kirchhoff_matrix(cr_matrix)
-        
-        # Calculate total number of spanning trees
-        total_trees = self.calculate_spanning_tree_count(kirchhoff_matrix)
-        
-        if total_trees <= 0:
-            # If no spanning trees, return zero STC for all nodes
-            n = len(cr_matrix)
-            return {str(i): 0.0 for i in range(n)}
-        
-        # Calculate edge participation
-        edge_participation = self.calculate_edge_participation(cr_matrix, kirchhoff_matrix)
-        
-        # Calculate node STC values
-        n = len(cr_matrix)
-        stc_values = {}
-        
-        for i in range(n):
-            # STC of a node is the sum of participation ratios of its incident edges
-            node_participation = np.sum(edge_participation[i,:])
-            stc_values[str(i)] = node_participation / total_trees
-            
-        return stc_values
+        Returns:
+            Matrix of unnecessary coordination edges (CA - CR intersection)
+        """
+        mask_no_diagonal = ~np.eye(len(cr_matrix), dtype=bool)
+        unnecessary = (cr_matrix == 0) & (ca_matrix > 0) & mask_no_diagonal
+        return unnecessary.astype(int)
+
 
 class MCSTCService(STCService):
-    """Service for MC-STC (Monte Carlo Spanning Tree Centrality) calculations
+    """Service for MC-STC (Multi-Class Socio-Technical Congruence) calculations
     
-    MC-STC uses Monte Carlo sampling to estimate STC values by:
-    1. Generating random spanning trees from the collaboration network
-    2. Computing node importance in each sampled tree
-    3. Averaging across all samples to get final STC estimates
+    MC-STC extends STC to measure alignment between different functional classes.
+    
+    Formula:
+    MC-STC = |(CR ∩ CA)^inter| / |CR^inter|
+    
+    Where:
+    - ^inter means only inter-class edges (between different classes)
+    - Intra-class edges (within same class) are excluded
+    
+    For 2-class (Dev vs Sec):
+    2C-STC = |(CR ∩ CA)^{Dev-Sec}| / |CR^{Dev-Sec}|
     """
     
-    def __init__(self, project_id: str, iterations: int = 1000):
-        super().__init__(project_id)
-        self.iterations = iterations
-        self.random_state = np.random.RandomState()
+    def __init__(self, project_id: str, threshold: float = 0):
+        super().__init__(project_id, threshold)
     
-    def _get_edges_from_matrix(self, cr_matrix: np.ndarray) -> List[Tuple[int, int, float]]:
-        """Extract edges from CR matrix
+    def filter_inter_class_edges(
+        self,
+        matrix: np.ndarray,
+        all_users: List[str],
+        class_assignments: Dict[str, str]
+    ) -> np.ndarray:
+        """Filter matrix to keep only inter-class edges
         
         Args:
-            cr_matrix: Collaboration Relations matrix
-            
-        Returns:
-            List of (node_i, node_j, weight) tuples
-        """
-        edges = []
-        n = len(cr_matrix)
-        for i in range(n):
-            for j in range(i + 1, n):
-                if cr_matrix[i, j] > 0:
-                    edges.append((i, j, cr_matrix[i, j]))
-        return edges
-    
-    def _find_parent(self, parent: Dict[int, int], node: int) -> int:
-        """Find root parent for Union-Find algorithm"""
-        if parent[node] != node:
-            parent[node] = self._find_parent(parent, parent[node])
-        return parent[node]
-    
-    def _union(self, parent: Dict[int, int], rank: Dict[int, int], x: int, y: int) -> bool:
-        """Union operation for Union-Find algorithm
+            matrix: Input matrix (CR or CA)
+            all_users: List of all user IDs
+            class_assignments: Dict mapping user_id to class_name (e.g., 'dev', 'sec')
         
         Returns:
-            True if union was performed, False if nodes already in same set
+            Matrix with only inter-class edges
         """
-        root_x = self._find_parent(parent, x)
-        root_y = self._find_parent(parent, y)
+        n = len(all_users)
+        filtered_matrix = matrix.copy()
         
-        if root_x == root_y:
-            return False
+        # Group users by class
+        classes = {}
+        for user_id in all_users:
+            class_name = class_assignments.get(user_id, 'unknown')
+            if class_name not in classes:
+                classes[class_name] = []
+            classes[class_name].append(user_id)
         
-        # Union by rank
-        if rank[root_x] < rank[root_y]:
-            parent[root_x] = root_y
-        elif rank[root_x] > rank[root_y]:
-            parent[root_y] = root_x
-        else:
-            parent[root_y] = root_x
-            rank[root_x] += 1
+        # Create user index mapping
+        user_indices = {user_id: idx for idx, user_id in enumerate(all_users)}
         
-        return True
+        # Zero out intra-class edges
+        for class_name, users in classes.items():
+            indices = [user_indices[user_id] for user_id in users if user_id in user_indices]
+            # Set all intra-class edges to 0
+            for i in indices:
+                for j in indices:
+                    filtered_matrix[i, j] = 0
         
-    def generate_random_spanning_tree(self, cr_matrix: np.ndarray) -> np.ndarray:
-        """Generate random spanning tree using randomized Kruskal's algorithm
-        
-        Uses probability sampling based on edge weights to generate
-        a random spanning tree from the collaboration network.
+        return filtered_matrix
+    
+    def calculate_mc_stc(
+        self,
+        cr_matrix: np.ndarray,
+        ca_matrix: np.ndarray,
+        all_users: List[str],
+        class_assignments: Dict[str, str]
+    ) -> float:
+        """Calculate MC-STC (Multi-Class Socio-Technical Congruence)
         
         Args:
-            cr_matrix: Collaboration Relations matrix (m × m)
-            
+            cr_matrix: Coordination Requirements matrix
+            ca_matrix: Coordination Actuals matrix
+            all_users: List of all user IDs
+            class_assignments: Dict mapping user_id to class_name
+        
         Returns:
-            Adjacency matrix of the random spanning tree
+            MC-STC value in range [0, 1]
         """
-        n = len(cr_matrix)
-        edges = self._get_edges_from_matrix(cr_matrix)
+        # Filter to keep only inter-class edges
+        mc_cr = self.filter_inter_class_edges(cr_matrix, all_users, class_assignments)
+        mc_ca = self.filter_inter_class_edges(ca_matrix, all_users, class_assignments)
         
-        if not edges:
-            # No edges, return empty tree
-            return np.zeros_like(cr_matrix)
+        # Calculate STC on filtered matrices
+        mc_stc = self.calculate_stc(mc_cr, mc_ca)
         
-        # Convert edges to probabilities based on weights
-        weights = np.array([w for _, _, w in edges])
-        probabilities = weights / weights.sum() if weights.sum() > 0 else np.ones(len(edges)) / len(edges)
+        return mc_stc
+    
+    def calculate_2c_stc(
+        self,
+        cr_matrix: np.ndarray,
+        ca_matrix: np.ndarray,
+        all_users: List[str],
+        security_users: Set[str],
+        developer_users: Set[str]
+    ) -> Tuple[float, np.ndarray, np.ndarray]:
+        """Calculate 2C-STC (Two-Class STC) for Dev-Sec coordination
         
-        # Shuffle edges with probability proportional to weights
-        edge_indices = self.random_state.choice(
-            len(edges), 
-            size=len(edges), 
-            replace=False, 
-            p=probabilities
+        Args:
+            cr_matrix: Coordination Requirements matrix
+            ca_matrix: Coordination Actuals matrix
+            all_users: List of all user IDs
+            security_users: Set of security user IDs
+            developer_users: Set of developer user IDs
+        
+        Returns:
+            Tuple of (2C-STC value, filtered CR matrix, filtered CA matrix)
+        """
+        # Create class assignments
+        class_assignments = {}
+        for user_id in all_users:
+            if user_id in security_users:
+                class_assignments[user_id] = 'security'
+            elif user_id in developer_users:
+                class_assignments[user_id] = 'developer'
+            else:
+                class_assignments[user_id] = 'unknown'
+        
+        # Filter to keep only inter-class edges
+        mc_cr = self.filter_inter_class_edges(cr_matrix, all_users, class_assignments)
+        mc_ca = self.filter_inter_class_edges(ca_matrix, all_users, class_assignments)
+        
+        # Calculate 2C-STC
+        two_c_stc = self.calculate_stc(mc_cr, mc_ca)
+        
+        return two_c_stc, mc_cr, mc_ca
+    
+    def get_missed_dev_sec_coordination(
+        self,
+        cr_matrix: np.ndarray,
+        ca_matrix: np.ndarray,
+        all_users: List[str],
+        security_users: Set[str],
+        developer_users: Set[str]
+    ) -> Dict[str, int]:
+        """Calculate missed Dev-Sec coordination count for each developer
+        
+        Returns:
+            Dictionary mapping developer_id to count of missed coordination with security
+        """
+        _, mc_cr, mc_ca = self.calculate_2c_stc(
+            cr_matrix, ca_matrix, all_users, 
+            security_users, developer_users
         )
         
-        # Initialize Union-Find structure
-        parent = {i: i for i in range(n)}
-        rank = {i: 0 for i in range(n)}
+        missed_coordination = {}
+        user_indices = {user_id: idx for idx, user_id in enumerate(all_users)}
         
-        # Build spanning tree using randomized Kruskal's algorithm
-        tree_edges = []
-        for idx in edge_indices:
-            i, j, weight = edges[idx]
-            if self._union(parent, rank, i, j):
-                tree_edges.append((i, j, weight))
-                if len(tree_edges) == n - 1:
-                    break
-        
-        # Convert edges to adjacency matrix
-        tree_matrix = np.zeros((n, n))
-        for i, j, weight in tree_edges:
-            tree_matrix[i, j] = weight
-            tree_matrix[j, i] = weight
-        
-        return tree_matrix
-    
-    def calculate_node_importance_in_tree(self, tree_matrix: np.ndarray) -> Dict[str, float]:
-        """Calculate node importance in a single spanning tree
-        
-        For MC-STC, node importance in a tree is based on its degree
-        (number of connections) weighted by edge weights.
-        
-        Args:
-            tree_matrix: Adjacency matrix of spanning tree
+        for dev_id in developer_users:
+            if dev_id not in user_indices:
+                continue
             
-        Returns:
-            Dictionary mapping node index to importance value
-        """
-        n = len(tree_matrix)
-        importance = {}
-        
-        for i in range(n):
-            # Weighted degree: sum of edge weights
-            node_importance = np.sum(tree_matrix[i, :])
-            importance[str(i)] = float(node_importance)
-        
-        # Normalize by total importance
-        total_importance = sum(importance.values())
-        if total_importance > 0:
-            importance = {k: v / total_importance for k, v in importance.items()}
-        
-        return importance
-        
-    def calculate_mc_stc_from_ca(self, ca_matrix: np.ndarray) -> Dict[str, float]:
-        """Calculate MC-STC from CA matrix using Monte Carlo method
-        
-        Args:
-            ca_matrix: Contribution Assignment matrix (m × n)
+            dev_idx = user_indices[dev_id]
             
-        Returns:
-            Dictionary mapping developer index to MC-STC value
-        """
-        # Calculate CR matrix first
-        cr_matrix = self.calculate_cr_matrix(ca_matrix)
-        return self.calculate_mc_stc_from_cr(cr_matrix)
-        
-    def calculate_mc_stc_from_cr(self, cr_matrix: np.ndarray) -> Dict[str, float]:
-        """Calculate MC-STC from CR matrix using Monte Carlo method
-        
-        Algorithm:
-        1. Generate N random spanning trees from the collaboration network
-        2. For each tree, calculate node importance
-        3. Average importance values across all sampled trees
-        
-        Args:
-            cr_matrix: Collaboration Relations matrix (m × m)
+            # Count edges where coordination with security is required but not actual
+            missed_count = 0
+            for sec_id in security_users:
+                if sec_id not in user_indices:
+                    continue
+                sec_idx = user_indices[sec_id]
+                
+                if mc_cr[dev_idx, sec_idx] > 0 and mc_ca[dev_idx, sec_idx] == 0:
+                    missed_count += 1
             
-        Returns:
-            Dictionary mapping developer index to MC-STC value
-        """
-        # Validate input
-        if not np.allclose(cr_matrix, cr_matrix.T):
-            raise ValueError("CR matrix must be symmetric")
+            missed_coordination[dev_id] = missed_count
         
-        n = len(cr_matrix)
-        
-        # Check if graph is connected (has edges)
-        if np.sum(cr_matrix) == 0:
-            return {str(i): 0.0 for i in range(n)}
-        
-        # Accumulate importance values across iterations
-        cumulative_importance = {str(i): 0.0 for i in range(n)}
-        
-        # Monte Carlo sampling
-        for iteration in range(self.iterations):
-            # Generate random spanning tree
-            tree = self.generate_random_spanning_tree(cr_matrix)
-            
-            # Calculate node importance in this tree
-            tree_importance = self.calculate_node_importance_in_tree(tree)
-            
-            # Accumulate
-            for node_id, importance in tree_importance.items():
-                cumulative_importance[node_id] += importance
-        
-        # Average across iterations
-        mc_stc_values = {
-            node_id: importance / self.iterations 
-            for node_id, importance in cumulative_importance.items()
-        }
-        
-        return mc_stc_values
+        return missed_coordination

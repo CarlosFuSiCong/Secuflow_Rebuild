@@ -148,12 +148,14 @@ class TNMDataAnalysisService:
         total_modifications = sum(user_data.values())
         avg_modifications_per_file = total_modifications / files_count if files_count > 0 else 0
         
-        # Calculate file type distribution
+        # Calculate file type distribution with path analysis
         file_types = {}
         for file_id, modifications in user_data.items():
             file_path = id_to_file.get(file_id, '')
-            ext = TNMDataAnalysisService._get_file_extension(file_path)
-            file_types[ext] = file_types.get(ext, 0) + modifications
+            
+            # Analyze both extension and path for role indicators
+            file_indicator = TNMDataAnalysisService._analyze_file_path(file_path)
+            file_types[file_indicator] = file_types.get(file_indicator, 0) + modifications
         
         return {
             'files_count': files_count,
@@ -161,6 +163,57 @@ class TNMDataAnalysisService:
             'avg_modifications_per_file': round(avg_modifications_per_file, 2),
             'file_types': file_types,
         }
+    
+    @staticmethod
+    def _analyze_file_path(file_path):
+        """
+        Analyze file path to extract role indicators.
+        
+        Returns a key that represents the file's role category.
+        Checks both path components and extension for security/ops keywords.
+        """
+        if not file_path:
+            return 'unknown'
+        
+        path_lower = file_path.lower()
+        
+        # Security indicators in path
+        security_keywords = [
+            'security', 'auth', 'authenticate', 'authorization', 'permission',
+            'crypto', 'encryption', 'ssl', 'tls', 'cert', 'oauth', 'jwt',
+            'acl', 'rbac', 'policy', 'vulnerability', 'cve', 'sanitize',
+            'xss', 'csrf', 'sqli', 'injection'
+        ]
+        
+        # Ops/Infrastructure indicators in path
+        ops_keywords = [
+            'docker', 'compose', 'kubernetes', 'k8s', 'helm', 'terraform',
+            'ansible', 'jenkins', 'gitlab-ci', 'github/workflows',
+            'deploy', 'deployment', 'infrastructure', 'infra', 'ops',
+            'ci', 'cd', 'pipeline', 'build', 'makefile'
+        ]
+        
+        # Check path for security keywords
+        for keyword in security_keywords:
+            if keyword in path_lower:
+                ext = TNMDataAnalysisService._get_file_extension(file_path)
+                return f'security_{ext}' if ext != 'no_ext' else 'security'
+        
+        # Check path for ops keywords
+        for keyword in ops_keywords:
+            if keyword in path_lower:
+                ext = TNMDataAnalysisService._get_file_extension(file_path)
+                return f'ops_{ext}' if ext != 'no_ext' else 'ops'
+        
+        # Check file extension for ops files
+        ext = TNMDataAnalysisService._get_file_extension(file_path)
+        ops_extensions = {'yml', 'yaml', 'dockerfile', 'sh', 'bash', 'ps1', 'tf', 'tfvars'}
+        
+        if ext in ops_extensions:
+            return f'ops_{ext}'
+        
+        # Return regular extension
+        return ext
     
     @staticmethod
     def _get_file_extension(file_path):
@@ -171,26 +224,111 @@ class TNMDataAnalysisService:
     
     @staticmethod
     def _suggest_functional_role(user_stats):
-        """Suggest functional role based on user statistics (MVP: Coder vs Reviewer)."""
+        """
+        Suggest functional role based on user statistics and file patterns.
+        
+        Classifies contributors into functional teams for MC-STC analysis:
+        - SECURITY: Works on security-related files/features
+        - OPS: Works on infrastructure, deployment, CI/CD
+        - DEVELOPER: Regular development (default)
+        - UNCLASSIFIED: Insufficient data
+        
+        Args:
+            user_stats: Dict containing modification statistics and file types
+            
+        Returns:
+            Dict with 'role' and 'confidence' (0-1 scale)
+        """
         total_mods = user_stats['total_modifications']
         files_count = user_stats['files_count']
-        avg_mods = user_stats['avg_modifications_per_file']
+        file_types = user_stats.get('file_types', {})
         
-        # High activity suggests active coder
-        if total_mods >= 100 and files_count >= 10:
-            if avg_mods > 5:  # Deep modifications suggest coding
-                return {'role': FunctionalRole.CODER, 'confidence': 0.8}
-            else:  # Many files but shallow changes suggest reviewing
-                return {'role': FunctionalRole.REVIEWER, 'confidence': 0.7}
+        # Insufficient data
+        if total_mods < 5:
+            return {'role': FunctionalRole.UNCLASSIFIED, 'confidence': 0.2}
         
-        # Medium activity - likely coder
-        elif total_mods >= 50:
-            return {'role': FunctionalRole.CODER, 'confidence': 0.6}
+        # Analyze file type patterns to determine role
+        role_indicators = TNMDataAnalysisService._analyze_file_patterns(file_types)
         
-        # Low activity - likely reviewer or occasional contributor  
-        elif total_mods >= 10:
-            return {'role': FunctionalRole.REVIEWER, 'confidence': 0.5}
+        # Security role: High proportion of security-related work
+        if role_indicators['security_score'] > 0.3 and total_mods >= 10:
+            confidence = min(0.9, 0.6 + role_indicators['security_score'] * 0.3)
+            return {'role': FunctionalRole.SECURITY, 'confidence': confidence}
         
-        # Minimal activity - unclassified
+        # Ops role: High proportion of infrastructure work
+        if role_indicators['ops_score'] > 0.3 and total_mods >= 10:
+            confidence = min(0.9, 0.6 + role_indicators['ops_score'] * 0.3)
+            return {'role': FunctionalRole.OPS, 'confidence': confidence}
+        
+        # Developer role (default for active contributors)
+        if total_mods >= 10:
+            # Higher confidence for more active contributors
+            if total_mods >= 100 and files_count >= 10:
+                confidence = 0.8
+            elif total_mods >= 50:
+                confidence = 0.7
+            else:
+                confidence = 0.6
+            return {'role': FunctionalRole.DEVELOPER, 'confidence': confidence}
+        
+        # Low activity - likely developer but low confidence
         else:
-            return {'role': FunctionalRole.UNCLASSIFIED, 'confidence': 0.3}
+            return {'role': FunctionalRole.DEVELOPER, 'confidence': 0.4}
+    
+    @staticmethod
+    def _analyze_file_patterns(file_types):
+        """
+        Analyze file type distribution to determine role indicators.
+        
+        Returns scores for different functional roles based on file patterns.
+        """
+        # Security-related file extensions and keywords
+        security_extensions = {
+            'security', 'auth', 'authentication', 'authorization',
+            'crypto', 'encryption', 'ssl', 'tls', 'cert', 'key',
+            'acl', 'permission', 'policy', 'vuln', 'cve'
+        }
+        
+        # Ops-related file extensions and keywords
+        ops_extensions = {
+            'yml', 'yaml', 'dockerfile', 'sh', 'bash', 'ps1',
+            'terraform', 'tf', 'ansible', 'helm', 'k8s',
+            'docker', 'compose', 'ci', 'cd', 'jenkins',
+            'makefile', 'build', 'deploy', 'infrastructure'
+        }
+        
+        # Development-related extensions (for normalization)
+        dev_extensions = {
+            'py', 'js', 'jsx', 'ts', 'tsx', 'java', 'kt', 'kts',
+            'go', 'rs', 'rb', 'php', 'cs', 'cpp', 'c', 'h',
+            'swift', 'scala', 'clj', 'ex', 'elm'
+        }
+        
+        total_mods = sum(file_types.values())
+        if total_mods == 0:
+            return {'security_score': 0.0, 'ops_score': 0.0, 'dev_score': 0.0}
+        
+        security_mods = 0
+        ops_mods = 0
+        dev_mods = 0
+        
+        for file_ext, mods in file_types.items():
+            ext_lower = file_ext.lower()
+            
+            # Check if extension matches any security keyword
+            if any(sec_key in ext_lower for sec_key in security_extensions):
+                security_mods += mods
+            
+            # Check if extension matches any ops keyword
+            if any(ops_key in ext_lower for ops_key in ops_extensions):
+                ops_mods += mods
+            
+            # Check if it's a development file
+            if ext_lower in dev_extensions:
+                dev_mods += mods
+        
+        return {
+            'security_score': security_mods / total_mods,
+            'ops_score': ops_mods / total_mods,
+            'dev_score': dev_mods / total_mods
+        }

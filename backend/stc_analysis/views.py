@@ -27,13 +27,18 @@ logger = logging.getLogger(__name__)
 
 class STCAnalysisViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for STC (Spanning Tree Centrality) analysis.
+    ViewSet for STC (Socio-Technical Congruence) analysis.
+    
+    STC measures the alignment between coordination requirements and actual coordination:
+    - CR (Coordination Requirements): who needs to coordinate (from technical dependencies)
+    - CA (Coordination Actuals): who actually coordinates (from communication data)
+    - STC = |CR ∩ CA| / |CR|
     
     Provides endpoints to:
     - Create and manage STC analyses
     - Start STC calculations
     - Retrieve analysis results
-    - Compare contributor centrality
+    - Compare contributor coordination
     """
     
     queryset = STCAnalysis.objects.select_related('project').all()
@@ -149,6 +154,19 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
                 error_code="STC_RETRIEVE_ERROR"
             )
     
+    def _load_sparse_matrix(self, json_data: dict, num_rows: int, num_cols: int) -> np.ndarray:
+        """Convert sparse JSON format to dense numpy matrix"""
+        matrix = np.zeros((num_rows, num_cols))
+        for row_id, row_data in json_data.items():
+            i = int(row_id)
+            if i >= num_rows:
+                continue
+            for col_id, value in row_data.items():
+                j = int(col_id)
+                if j < num_cols:
+                    matrix[i, j] = float(value)
+        return matrix
+    
     @action(detail=True, methods=['post'])
     def start_analysis(self, request, pk=None):
         """
@@ -187,9 +205,12 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
                 tnm_output_dir = f"{repos_root}/project_{analysis.project.id}_{branch.replace('/', '_')}"
             
             # Check if TNM data exists
-            assignment_matrix_path = os.path.join(tnm_output_dir, 'AssignmentMatrix.json')
-            if not os.path.exists(assignment_matrix_path):
-                analysis.error_message = f"TNM output not found: {assignment_matrix_path}"
+            assignment_path = os.path.join(tnm_output_dir, 'AssignmentMatrix.json')
+            dependency_path = os.path.join(tnm_output_dir, 'FileDependencyMatrix.json')
+            id_to_user_path = os.path.join(tnm_output_dir, 'idToUser.json')
+            
+            if not os.path.exists(assignment_path):
+                analysis.error_message = f"TNM output not found: {assignment_path}"
                 analysis.save()
                 return ApiResponse.error(
                     error_message="TNM analysis data not found. Please run TNM analysis first.",
@@ -197,74 +218,168 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
                     status_code=status.HTTP_404_NOT_FOUND
                 )
             
-            # Load CA (Contribution Assignment) matrix
-            with open(assignment_matrix_path, 'r') as f:
-                ca_data = json.load(f)
+            # Load TNM output data
+            with open(assignment_path, 'r') as f:
+                assignment_data = json.load(f)
             
-            # Convert to numpy array
-            ca_matrix = np.array(ca_data)
+            with open(dependency_path, 'r') as f:
+                dependency_data = json.load(f)
             
-            # Validate CA matrix
-            if ca_matrix.ndim != 2:
-                analysis.error_message = "Invalid CA matrix: must be 2-dimensional"
-                analysis.save()
-                return ApiResponse.error(
-                    error_message="Invalid CA matrix format",
-                    error_code="INVALID_DATA",
-                    status_code=status.HTTP_400_BAD_REQUEST
-                )
+            with open(id_to_user_path, 'r') as f:
+                id_to_user = json.load(f)
             
-            logger.info(f"CA matrix shape: {ca_matrix.shape} (developers × files)", extra={
+            # Determine matrix dimensions
+            all_user_ids = set(assignment_data.keys())
+            all_file_ids = set()
+            for user_files in assignment_data.values():
+                all_file_ids.update(user_files.keys())
+            for file_deps in dependency_data.values():
+                all_file_ids.update(file_deps.keys())
+                all_file_ids.add(int(list(dependency_data.keys())[0]) if dependency_data else 0)
+            
+            num_users = len(all_user_ids)
+            num_files = len(all_file_ids)
+            
+            logger.info(f"Matrix dimensions: {num_users} users × {num_files} files", extra={
                 'analysis_id': analysis.id,
-                'developers': ca_matrix.shape[0],
-                'files': ca_matrix.shape[1]
+                'num_users': num_users,
+                'num_files': num_files
             })
             
+            # Convert sparse matrices to dense numpy arrays
+            assignment_matrix = self._load_sparse_matrix(assignment_data, num_users, num_files)
+            dependency_matrix = self._load_sparse_matrix(dependency_data, num_files, num_files)
+            
+            # Create ordered user list for indexing
+            all_users = sorted([str(uid) for uid in all_user_ids], key=lambda x: int(x))
+            
             # Initialize service
+            threshold = 0  # Binary threshold: >0 means coordination required
+            
             if analysis.use_monte_carlo:
                 service = MCSTCService(
                     project_id=str(analysis.project.id),
-                    iterations=analysis.monte_carlo_iterations
+                    threshold=threshold
                 )
             else:
-                service = STCService(project_id=str(analysis.project.id))
+                service = STCService(
+                    project_id=str(analysis.project.id),
+                    threshold=threshold
+                )
             
-            # Calculate STC from CA matrix
-            # Service will automatically compute CR = CA × CA^T
+            # Calculate CR (Coordination Requirements) from Assignment and Dependency
+            cr_matrix = service.calculate_cr_from_assignment_dependency(
+                assignment_matrix, 
+                dependency_matrix
+            )
+            
+            # Calculate CA (Coordination Actuals) from file modifiers
+            # If two developers modify the same file, they have actual coordination
+            file_modifiers = {}
+            for user_id, files in assignment_data.items():
+                for file_id, count in files.items():
+                    if count > 0:
+                        if file_id not in file_modifiers:
+                            file_modifiers[file_id] = set()
+                        file_modifiers[file_id].add(str(user_id))
+            
+            ca_matrix = service.calculate_ca_from_file_modifiers(
+                file_modifiers,
+                all_users
+            )
+            
+            logger.info(f"Matrices calculated", extra={
+                'analysis_id': analysis.id,
+                'cr_edges': int(np.sum(cr_matrix > 0) / 2),  # Undirected edges
+                'ca_edges': int(np.sum(ca_matrix > 0) / 2)
+            })
+            
+            # Calculate STC or MC-STC
             if analysis.use_monte_carlo:
-                stc_values = service.calculate_mc_stc_from_ca(ca_matrix)
+                # For MC-STC, identify developer roles from contributor data
+                from contributors.models import ProjectContributor
+                from contributors.enums import FunctionalRole
+                
+                # Get contributor role assignments
+                contributors = ProjectContributor.objects.filter(
+                    project=analysis.project
+                ).select_related('contributor')
+                
+                # Build user role mapping
+                security_users = set()
+                developer_users = set()
+                
+                for pc in contributors:
+                    user_id = pc.tnm_user_id
+                    if not user_id:
+                        # Try to match by github_login
+                        login = pc.contributor.github_login
+                        # Find user_id in id_to_user mapping
+                        for uid, email_or_login in id_to_user.items():
+                            if login in email_or_login or email_or_login in login:
+                                user_id = uid
+                                break
+                    
+                    if user_id and user_id in all_users:
+                        if pc.functional_role == FunctionalRole.SECURITY:
+                            security_users.add(user_id)
+                        elif pc.functional_role == FunctionalRole.DEVELOPER:
+                            developer_users.add(user_id)
+                        # Note: OPS users can be added to developer_users or handled separately
+                        elif pc.functional_role == FunctionalRole.OPS:
+                            developer_users.add(user_id)  # Treat OPS as developers for 2C-STC
+                
+                # Calculate 2C-STC (Dev-Sec)
+                if security_users and developer_users:
+                    stc_value, mc_cr, mc_ca = service.calculate_2c_stc(
+                        cr_matrix, ca_matrix, all_users,
+                        security_users, developer_users
+                    )
+                    
+                    logger.info(f"MC-STC calculated with role distribution", extra={
+                        'analysis_id': analysis.id,
+                        'security_count': len(security_users),
+                        'developer_count': len(developer_users)
+                    })
+                else:
+                    logger.warning(f"Insufficient role data for MC-STC, using standard STC", extra={
+                        'analysis_id': analysis.id,
+                        'security_count': len(security_users),
+                        'developer_count': len(developer_users)
+                    })
+                    stc_value = service.calculate_stc(cr_matrix, ca_matrix)
             else:
-                stc_values = service.calculate_stc_from_ca(ca_matrix)
+                stc_value = service.calculate_stc(cr_matrix, ca_matrix)
             
-            # Save results
+            # Get missed coordination for each developer
+            missed_coord = service.get_missed_coordination(cr_matrix, ca_matrix)
+            missed_counts = {}
+            for i, user_id in enumerate(all_users):
+                missed_counts[user_id] = int(np.sum(missed_coord[i, :]))
+            
+            # Prepare results with contributor info
+            results_data = {
+                'stc_value': float(stc_value),
+                'total_required_edges': int(np.sum(cr_matrix > 0) / 2),
+                'total_actual_edges': int(np.sum(ca_matrix > 0) / 2),
+                'satisfied_edges': int(np.sum((cr_matrix > 0) & (ca_matrix > 0)) / 2),
+                'developers': []
+            }
+            
+            for user_id in sorted(missed_counts.keys(), key=lambda x: missed_counts[x], reverse=True):
+                contributor_login = id_to_user.get(user_id, f"Unknown_{user_id}")
+                results_data['developers'].append({
+                    'user_id': user_id,
+                    'contributor_login': contributor_login,
+                    'missed_coordination_count': missed_counts[user_id],
+                    'required_coordination': int(np.sum(cr_matrix[int(user_id), :] > 0)),
+                    'actual_coordination': int(np.sum(ca_matrix[int(user_id), :] > 0))
+                })
+            
+            # Save results to file
             results_filename = f"stc_results_{analysis.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
             results_path = os.path.join(tnm_output_dir, results_filename)
             
-            # Load user ID mapping
-            id_to_user_path = os.path.join(tnm_output_dir, 'idToUser.json')
-            user_mapping = {}
-            if os.path.exists(id_to_user_path):
-                with open(id_to_user_path, 'r') as f:
-                    user_mapping = json.load(f)
-            
-            # Prepare results with contributor info
-            results_with_info = []
-            for node_id, stc_value in stc_values.items():
-                contributor_login = user_mapping.get(node_id, f"Unknown_{node_id}")
-                results_with_info.append({
-                    'node_id': node_id,
-                    'contributor_login': contributor_login,
-                    'stc_value': float(stc_value)
-                })
-            
-            # Sort by STC value descending
-            results_with_info.sort(key=lambda x: x['stc_value'], reverse=True)
-            
-            # Add ranks
-            for rank, result in enumerate(results_with_info, 1):
-                result['rank'] = rank
-            
-            # Save results to file
             os.makedirs(os.path.dirname(results_path), exist_ok=True)
             with open(results_path, 'w') as f:
                 json.dump({
@@ -272,8 +387,7 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
                     'project_id': str(analysis.project.id),
                     'analysis_date': datetime.now().isoformat(),
                     'use_monte_carlo': analysis.use_monte_carlo,
-                    'total_nodes': len(stc_values),
-                    'results': results_with_info
+                    'results': results_data
                 }, f, indent=2)
             
             # Update analysis record
@@ -285,15 +399,15 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
             logger.info(f"STC analysis {analysis.id} completed successfully", extra={
                 'user_id': user_id,
                 'analysis_id': analysis.id,
-                'total_nodes': len(stc_values)
+                'stc_value': stc_value
             })
             
             return ApiResponse.success(
                 data={
                     'analysis_id': analysis.id,
-                    'total_nodes': len(stc_values),
+                    'stc_value': float(stc_value),
                     'results_file': results_filename,
-                    'top_contributors': results_with_info[:10]
+                    'top_missed_coordination': results_data['developers'][:10]
                 },
                 message="STC analysis completed successfully"
             )
@@ -359,10 +473,10 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
             
             # Apply top_n filter if specified
             top_n = request.query_params.get('top_n')
-            if top_n:
+            if top_n and 'results' in results_data and 'developers' in results_data['results']:
                 try:
                     top_n = int(top_n)
-                    results_data['results'] = results_data['results'][:top_n]
+                    results_data['results']['developers'] = results_data['results']['developers'][:top_n]
                 except ValueError:
                     pass
             
@@ -449,20 +563,22 @@ def project_stc_comparison(request, project_id):
         
         # Combine STC results with contributor data
         comparison_data = []
-        for result in results_data.get('results', []):
-            login = result.get('contributor_login')
-            if login and login in contributor_map:
-                contrib_data = contributor_map[login]
-                comparison_data.append({
-                    'contributor_login': login,
-                    'contributor_id': contrib_data['id'],
-                    'stc_value': result['stc_value'],
-                    'stc_rank': result['rank'],
-                    'total_modifications': contrib_data['total_modifications'],
-                    'files_modified': contrib_data['files_modified'],
-                    'functional_role': contrib_data['functional_role'],
-                    'is_core_contributor': contrib_data['is_core_contributor']
-                })
+        if 'results' in results_data and 'developers' in results_data['results']:
+            for dev_result in results_data['results']['developers']:
+                login = dev_result.get('contributor_login')
+                if login and login in contributor_map:
+                    contrib_data = contributor_map[login]
+                    comparison_data.append({
+                        'contributor_login': login,
+                        'contributor_id': contrib_data['id'],
+                        'missed_coordination_count': dev_result['missed_coordination_count'],
+                        'required_coordination': dev_result['required_coordination'],
+                        'actual_coordination': dev_result['actual_coordination'],
+                        'total_modifications': contrib_data['total_modifications'],
+                        'files_modified': contrib_data['files_modified'],
+                        'functional_role': contrib_data['functional_role'],
+                        'is_core_contributor': contrib_data['is_core_contributor']
+                    })
         
         # Apply filters
         role_filter = request.query_params.get('role')
@@ -488,6 +604,7 @@ def project_stc_comparison(request, project_id):
                 'project_id': str(project.id),
                 'project_name': project.name,
                 'analysis_date': analysis.analysis_date.isoformat(),
+                'stc_value': results_data.get('results', {}).get('stc_value', 0),
                 'total_contributors': len(comparison_data),
                 'contributors': comparison_data
             },
