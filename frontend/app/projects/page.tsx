@@ -1,20 +1,20 @@
 "use client";
-import { ProfileNavbar } from "@/components/profile/ProfileNavbar";
-import { Separator } from "@/components/ui/separator";
-import { AddProjectSection } from "@/components/project/AddProjectSection";
-import { ProjectsListSection } from "@/components/project/ProjectsListSection";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getCurrentUser } from "@/lib/api";
 
-export default function ProjectsPage() {
+export default function ProjectsRedirect() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const user = getCurrentUser();
+    const userId = user?.id || 'user';
+    router.replace(`/users/${userId}/projects`);
+  }, [router]);
+
   return (
-    <div className="bg-background">
-      <ProfileNavbar />
-      <main>
-        <div className="container mx-auto flex flex-col gap-6 p-4 lg:gap-8 lg:p-6">
-          <AddProjectSection />
-          <Separator />
-          <ProjectsListSection />
-        </div>
-      </main>
+    <div className="flex items-center justify-center min-h-screen">
+      <p className="text-muted-foreground">Redirecting...</p>
     </div>
   );
 }

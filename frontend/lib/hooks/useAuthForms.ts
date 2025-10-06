@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { login, register as registerApi } from "@/lib/api";
+import { login, register as registerApi, getCurrentUser } from "@/lib/api";
 import { signInSchema, type SignInValues, signUpSchema, type SignUpValues } from "@/lib/validation/auth";
 
 export function useSignInForm() {
@@ -23,7 +23,9 @@ export function useSignInForm() {
     setFormError(null);
     try {
       await login(values.email, values.password);
-      router.push("/projects");
+      const user = getCurrentUser();
+      const userId = user?.id || 'user';
+      router.push(`/users/${userId}/projects`);
     } catch (err: any) {
       const status = err?.response?.status;
       const msg =
@@ -54,7 +56,9 @@ export function useSignUpForm() {
     setFormError(null);
     try {
       await registerApi(values.email, values.password);
-      router.push("/projects");
+      const user = getCurrentUser();
+      const userId = user?.id || 'user';
+      router.push(`/users/${userId}/projects`);
     } catch (err: any) {
       const msg = err?.response?.data?.detail || err?.response?.data?.message || err?.message || "Sign up failed";
       setFormError(msg);

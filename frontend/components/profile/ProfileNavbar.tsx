@@ -11,11 +11,7 @@ import { UserMenu } from "./UserMenu";
 import { getCurrentUser } from "@/lib/api/users";
 import type { User } from "@/lib/types/user";
 
-// Navigation links configuration
-const NAV_LINKS = [
-  { href: "/projects", label: "Projects", isActive: false },
-  { href: "/profile", label: "Profile", isActive: true },
-];
+// Navigation links configuration - will be generated dynamically with username
 
 // Text constants
 const TEXT = {
@@ -45,13 +41,23 @@ export function ProfileNavbar() {
     fetchUser();
   }, []);
 
+  // Generate navigation links with user ID
+  const getNavLinks = () => {
+    const userId = user?.id || 'user';
+    return [
+      { href: `/users/${userId}/projects`, label: "Projects", isActive: false },
+      { href: "/profile", label: "Profile", isActive: true },
+    ];
+  };
+
   // Navigation Links Component
   const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
     const baseClasses = `font-medium ${isMobile ? "text-base" : "text-sm"} px-3 py-2 rounded-md`;
+    const navLinks = getNavLinks();
 
     return (
       <>
-        {NAV_LINKS.map((link) => (
+        {navLinks.map((link) => (
           <Link
             key={link.href}
             href={link.href}

@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 const TEXT = {
   INPUT_PLACEHOLDER: "https://github.com/username/repository",
   INPUT_HINT: "Enter the full GitHub repository URL",
-  BUTTON_VALIDATE: "Validate Repository",
-  BUTTON_VALIDATING: "Validating...",
+  BUTTON_VALIDATE: "Validate & Import",
+  BUTTON_VALIDATING: "Processing...",
 };
 
 interface RepositoryInputProps {

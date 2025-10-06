@@ -7,22 +7,15 @@ import {
   CardTitle,
   CardContent,
 } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-} from "@/components/ui/collapsible";
 import { useAddProject } from "@/lib/hooks/useAddProject";
 import { RepositoryInput } from "./RepositoryInput";
 import { RepositoryDetails } from "./RepositoryDetails";
-import { BranchSelector } from "./BranchSelector";
 
 // Text constants
 const TEXT = {
   SECTION_TITLE: "Add New Project",
   SECTION_DESCRIPTION: "Import a project from GitHub by providing the repository URL.",
   CARD_TITLE: "Import from GitHub",
-  BUTTON_CREATE: "Import Project",
-  BUTTON_CREATING: "Importing...",
   BUTTON_RESET: "Reset",
 };
 
@@ -30,15 +23,10 @@ export function AddProjectSection() {
   const {
     repoUrl,
     setRepoUrl,
-    isValidating,
-    isCreating,
-    validationError,
-    createError,
+    isProcessing,
+    error,
     repoInfo,
-    selectedBranch,
-    setSelectedBranch,
-    handleValidate,
-    handleCreate,
+    handleValidateAndCreate,
     handleReset,
   } = useAddProject();
 
@@ -60,58 +48,31 @@ export function AddProjectSection() {
           <RepositoryInput
             repoUrl={repoUrl}
             onRepoUrlChange={setRepoUrl}
-            onValidate={handleValidate}
-            isValidating={isValidating}
-            isDisabled={isValidating || isCreating || !!repoInfo}
-            validationError={validationError}
+            onValidate={handleValidateAndCreate}
+            isValidating={isProcessing}
+            isDisabled={isProcessing || !!repoInfo}
+            validationError={error}
           />
 
-          {/* Repository Details - Shows after successful validation */}
+          {/* Repository Details - Shows after successful import */}
           {repoInfo && repoInfo.valid && (
-            <Collapsible open={!!repoInfo} className="space-y-4 border-t pt-4">
-              <CollapsibleContent className="space-y-4">
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between gap-4">
                 {/* Repository Details */}
-                <RepositoryDetails
-                  repoUrl={repoUrl}
-                  repoName={repoInfo.repo_name}
-                  repoOwner={repoInfo.repo_owner}
-                  repoDescription={repoInfo.repo_description}
-                  stars={repoInfo.stars}
-                />
-
-                {/* Branch Selection */}
-                <BranchSelector
-                  branches={repoInfo.branches || []}
-                  selectedBranch={selectedBranch}
-                  defaultBranch={repoInfo.default_branch}
-                  onBranchChange={setSelectedBranch}
-                  disabled={isCreating}
-                />
-
-                {/* Create Error */}
-                {createError && (
-                  <p className="text-sm text-destructive">{createError}</p>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <Button
-                    className="flex-1"
-                    onClick={handleCreate}
-                    disabled={isCreating}
-                  >
-                    {isCreating ? TEXT.BUTTON_CREATING : TEXT.BUTTON_CREATE}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleReset}
-                    disabled={isCreating}
-                  >
-                    {TEXT.BUTTON_RESET}
-                  </Button>
+                <div className="flex-1">
+                  <RepositoryDetails repoUrl={repoUrl} />
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
+
+                {/* Reset Button */}
+                <Button
+                  variant="outline"
+                  onClick={handleReset}
+                  className="flex-shrink-0"
+                >
+                  {TEXT.BUTTON_RESET}
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

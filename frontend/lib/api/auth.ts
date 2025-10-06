@@ -7,6 +7,7 @@ const persistTokens = (resp: AuthResponse) => {
   if (!payload) return;
   if (payload.access) localStorage.setItem("access_token", payload.access);
   if (payload.refresh) localStorage.setItem("refresh_token", payload.refresh);
+  if (payload.user) localStorage.setItem("user", JSON.stringify(payload.user));
 };
 
 export async function login(email: string, password: string): Promise<AuthResponse> {
@@ -44,6 +45,18 @@ export async function logout() {
   // Clear tokens from localStorage
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
+  localStorage.removeItem("user");
+}
+
+export function getCurrentUser() {
+  if (typeof window === "undefined") return null;
+  const userStr = localStorage.getItem("user");
+  if (!userStr) return null;
+  try {
+    return JSON.parse(userStr);
+  } catch {
+    return null;
+  }
 }
 
 

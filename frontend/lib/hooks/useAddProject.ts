@@ -1,70 +1,38 @@
 "use client";
 
 import { useState } from "react";
-import { validateRepository, createProject, type Branch } from "@/lib/api";
-
-interface RepositoryInfo {
-  valid: boolean;
-  repo_name?: string;
-  repo_description?: string;
-  repo_owner?: string;
-  default_branch?: string;
-  branches?: Branch[];
-  stars?: number;
-  repo_url?: string;
-}
+import { validateRepository, createProject } from "@/lib/api";
+import type { ValidateRepositoryData } from "@/lib/types/project";
 
 export function useAddProject() {
   const [repoUrl, setRepoUrl] = useState("");
-  const [isValidating, setIsValidating] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [repoInfo, setRepoInfo] = useState<RepositoryInfo | null>(null);
-  const [selectedBranch, setSelectedBranch] = useState<string>("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [repoInfo, setRepoInfo] = useState<ValidateRepositoryData | null>(null);
 
-  const handleValidate = async () => {
+  // Combined validate and create operation
+  const handleValidateAndCreate = async () => {
     if (!repoUrl.trim()) {
-      setValidationError("Please enter a repository URL");
+      setError("Please enter a repository URL");
       return;
     }
 
-    setIsValidating(true);
-    setValidationError(null);
+    setIsProcessing(true);
+    setError(null);
     setRepoInfo(null);
 
     try {
+      // Step 1: Validate repository
       const response = await validateRepository(repoUrl);
 
-      if (response.data.valid) {
-        setRepoInfo(response.data);
-        setSelectedBranch(response.data.default_branch || "");
-      } else {
-        setValidationError("Invalid repository URL or repository not found");
+      if (!response.data?.valid) {
+        setError("Invalid repository URL or repository not found");
+        return;
       }
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail ||
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to validate repository";
-      setValidationError(msg);
-    } finally {
-      setIsValidating(false);
-    }
-  };
 
-  const handleCreate = async () => {
-    if (!repoUrl || !repoInfo) return;
+      // Step 2: Create project automatically
+      const projectName = repoUrl.split('/').pop()?.replace('.git', '') || 'project';
 
-    setIsCreating(true);
-    setCreateError(null);
-
-    try {
-      // Extract project name from repo_url or use repo_name from validation
-      const projectName = repoInfo.repo_name || repoUrl.split('/').pop()?.replace('.git', '') || 'project';
-
-      // Determine repo_type from URL
       let repoType = 'github';
       if (repoUrl.includes('gitlab')) {
         repoType = 'gitlab';
@@ -74,50 +42,41 @@ export function useAddProject() {
 
       await createProject({
         name: projectName,
-        description: repoInfo.repo_description || '',
         repo_url: repoUrl,
         repo_type: repoType,
       });
 
-      // Reset form on success
-      setRepoUrl("");
-      setRepoInfo(null);
-      setSelectedBranch("");
+      // Success: show repository info
+      setRepoInfo(response.data);
 
       return true;
     } catch (err: any) {
       const msg =
-        err?.response?.data?.detail ||
-        err?.response?.data?.message ||
         err?.response?.data?.errorMessage ||
+        err?.response?.data?.message ||
+        err?.response?.data?.detail ||
         err?.message ||
-        "Failed to create project";
-      setCreateError(msg);
+        "Failed to validate and import repository";
+      setError(msg);
       return false;
     } finally {
-      setIsCreating(false);
+      setIsProcessing(false);
     }
   };
 
   const handleReset = () => {
+    setRepoUrl("");
     setRepoInfo(null);
-    setValidationError(null);
-    setCreateError(null);
-    setSelectedBranch("");
+    setError(null);
   };
 
   return {
     repoUrl,
     setRepoUrl,
-    isValidating,
-    isCreating,
-    validationError,
-    createError,
+    isProcessing,
+    error,
     repoInfo,
-    selectedBranch,
-    setSelectedBranch,
-    handleValidate,
-    handleCreate,
+    handleValidateAndCreate,
     handleReset,
   };
 }
