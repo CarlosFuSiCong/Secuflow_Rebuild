@@ -24,6 +24,7 @@ const TEXT = {
 export function ProfileNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [currentPath, setCurrentPath] = useState('');
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -39,14 +40,19 @@ export function ProfileNavbar() {
       }
     };
     fetchUser();
+
+    // Only set current path on client side to avoid hydration mismatch
+    setCurrentPath(window.location.pathname);
   }, []);
 
   // Generate navigation links with user ID
   const getNavLinks = () => {
     const userId = user?.id || 'user';
+
     return [
-      { href: `/users/${userId}/projects`, label: "Projects", isActive: false },
-      { href: "/profile", label: "Profile", isActive: true },
+      { href: "/dashboard", label: "Dashboard", isActive: currentPath === "/dashboard" },
+      { href: `/users/${userId}/projects`, label: "Projects", isActive: currentPath.startsWith(`/users/${userId}/projects`) },
+      { href: "/profile", label: "Profile", isActive: currentPath === "/profile" },
     ];
   };
 
