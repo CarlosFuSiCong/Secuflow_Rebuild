@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/pagination";
 import { ProjectTableRow } from "./ProjectTableRow";
 import type { Project } from "@/lib/api/projects";
+import type { EnhancedProject } from "@/lib/utils/project-helpers";
 
 const TEXT = {
   HEADER_PROJECT: "Project",
@@ -32,7 +33,7 @@ const TEXT = {
 };
 
 interface ProjectTableProps {
-  projects: Project[];
+  projects: (Project | EnhancedProject)[];
   currentPage?: number;
   totalPages?: number;
   onPageChange?: (page: number) => void;

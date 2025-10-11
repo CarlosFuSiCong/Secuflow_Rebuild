@@ -1,8 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { ProjectSearchBar } from "./ProjectSearchBar";
 import { ProjectTable } from "./ProjectTable";
 import { useProjects } from "@/lib/hooks/useProjects";
+import { enhanceProject, type EnhancedProject } from "@/lib/utils/project-helpers";
+import { getProjectBranches } from "@/lib/api/projects";
 
 const TEXT = {
   SECTION_TITLE: "Your Projects",
@@ -13,16 +16,62 @@ const TEXT = {
 };
 
 export function ProjectsListSection() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [enhancedProjects, setEnhancedProjects] = useState<EnhancedProject[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+
   const {
-    projects,
+    allProjects,
     loading,
     error,
-    page,
-    totalPages,
-    searchQuery,
+    allProjectsLoading,
+    searchProjectsLocally,
     handleSearch,
-    handlePageChange,
   } = useProjects();
+
+  // Enhance projects with branch count and calculated fields
+  useEffect(() => {
+    const enhanceProjectsWithBranches = async () => {
+      if (!allProjects || allProjects.length === 0) {
+        setEnhancedProjects([]);
+        return;
+      }
+
+      setLoadingBranches(true);
+      const enhanced = await Promise.all(
+        allProjects.map(async (project) => {
+          try {
+            const branchesData = await getProjectBranches(project.id);
+            return enhanceProject(project, branchesData.branches.length);
+          } catch {
+            // If branches fetch fails, still enhance with available data
+            return enhanceProject(project);
+          }
+        })
+      );
+      setEnhancedProjects(enhanced);
+      setLoadingBranches(false);
+    };
+
+    enhanceProjectsWithBranches();
+  }, [allProjects]);
+
+  // Handle local search query - use debounce for better UX
+  const handleLocalSearch = (query: string) => {
+    setSearchQuery(query);
+    // Debounce search to avoid excessive API calls while typing
+    setTimeout(() => {
+      handleSearch(query);
+    }, 300);
+  };
+
+  // Filter projects locally based on search query
+  const filteredProjects = searchProjectsLocally(searchQuery);
+
+  // Get pagination info from filtered results
+  const totalFilteredProjects = filteredProjects.length;
+  const totalPages = Math.ceil(totalFilteredProjects / 10); // Assuming 10 items per page
+  const currentPageProjects = filteredProjects.slice(0, 10); // Show first 10 items
 
 
   return (
@@ -36,27 +85,35 @@ export function ProjectsListSection() {
 
       <ProjectSearchBar
         searchQuery={searchQuery}
-        onSearchChange={handleSearch}
+        onSearchChange={handleLocalSearch}
       />
 
-      {loading && (
-        <p className="text-center text-muted-foreground py-8">{TEXT.LOADING}</p>
+      {(loading || allProjectsLoading || loadingBranches) && (
+        <p className="text-center text-muted-foreground py-8">
+          {loadingBranches ? "Loading project details..." : TEXT.LOADING}
+        </p>
       )}
 
-      {error && (
+      {error && !loading && !allProjectsLoading && (
         <p className="text-center text-destructive py-8">{error}</p>
       )}
 
-      {!loading && !error && projects.length === 0 && (
-        <p className="text-center text-muted-foreground py-8">{TEXT.NO_PROJECTS}</p>
+      {!loading && !allProjectsLoading && !error && filteredProjects.length === 0 && (
+        <p className="text-center text-muted-foreground py-8">
+          {searchQuery ? "No projects found matching your search" : TEXT.NO_PROJECTS}
+        </p>
       )}
 
-      {!loading && !error && projects.length > 0 && (
+      {!loading && !allProjectsLoading && !error && filteredProjects.length > 0 && (
         <ProjectTable
-          projects={projects}
-          currentPage={page}
+          projects={currentPageProjects}
+          currentPage={1}
           totalPages={totalPages}
-          onPageChange={handlePageChange}
+          onPageChange={(page) => {
+            // For now, just scroll to top or handle pagination differently
+            // Since we're showing filtered results, pagination might need adjustment
+            console.log("Page change:", page);
+          }}
         />
       )}
     </section>

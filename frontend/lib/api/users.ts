@@ -37,4 +37,30 @@ export async function getCurrentUser(): Promise<ApiResponse<User>> {
   return data;
 }
 
+export interface SearchUsersParams {
+  search?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface SearchUsersResponse {
+  results: User[];
+  count: number;
+  next: string | null;
+  previous: string | null;
+}
+
+export async function searchUsers(params: SearchUsersParams = {}): Promise<ApiResponse<SearchUsersResponse>> {
+  const queryParams = new URLSearchParams();
+
+  if (params.search) queryParams.append('search', params.search);
+  if (params.page) queryParams.append('page', String(params.page));
+  if (params.page_size) queryParams.append('page_size', String(params.page_size));
+
+  const { data } = await apiClient.get<ApiResponse<SearchUsersResponse>>(
+    `/users/?${queryParams.toString()}`
+  );
+  return data;
+}
+
 

@@ -76,3 +76,16 @@ export async function getProjectBranches(projectId: string): Promise<BranchesRes
   }
   return data.data;
 }
+
+export interface AddMemberRequest {
+  user_id: string;
+  role: string;
+}
+
+export async function addProjectMember(projectId: string, request: AddMemberRequest): Promise<ApiResponse<any>> {
+  const { data } = await apiClient.post<ApiResponse<any>>(
+    `/projects/projects/${projectId}/add_member/`,
+    request
+  );
+  return data;
+}
