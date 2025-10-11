@@ -24,9 +24,6 @@ export function ProjectsListSection() {
     handlePageChange,
   } = useProjects();
 
-  const handleExport = () => {
-    console.log("Exporting projects");
-  };
 
   return (
     <section className="flex flex-col gap-4 lg:gap-6">
@@ -40,7 +37,6 @@ export function ProjectsListSection() {
       <ProjectSearchBar
         searchQuery={searchQuery}
         onSearchChange={handleSearch}
-        onExport={handleExport}
       />
 
       {loading && (

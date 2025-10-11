@@ -9,7 +9,7 @@ export default function ProjectsRedirect() {
   useEffect(() => {
     const user = getCurrentUser();
     const userId = user?.id || 'user';
-    router.replace(`/users/${userId}/projects`);
+    router.replace(`/project/${userId}/projects`);
   }, [router]);
 
   return (

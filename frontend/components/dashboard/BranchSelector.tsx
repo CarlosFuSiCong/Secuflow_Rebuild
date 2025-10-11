@@ -3,19 +3,7 @@
 import { useState } from "react";
 import Card from "@/components/horizon/Card";
 import { DASHBOARD_TEXT } from "@/app/dashboard/constants";
-
-interface Branch {
-  name: string;
-  isCurrent: boolean;
-  isRemote: boolean;
-}
-
-interface BranchSelectorProps {
-  branches: Branch[];
-  selectedBranch?: string;
-  onBranchChange?: (branchName: string) => void;
-  onCreateCopy?: () => void;
-}
+import type { BranchSelectorProps, DashboardBranch } from "@/lib/types";
 
 export function BranchSelector({
   branches,

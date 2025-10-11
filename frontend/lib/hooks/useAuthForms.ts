@@ -25,7 +25,7 @@ export function useSignInForm() {
       await login(values.email, values.password);
       const user = getCurrentUser();
       const userId = user?.id || 'user';
-      router.push(`/users/${userId}/projects`);
+      router.push(`/project/${userId}/projects`);
     } catch (err: any) {
       const status = err?.response?.status;
       const msg =
@@ -58,7 +58,7 @@ export function useSignUpForm() {
       await registerApi(values.email, values.password);
       const user = getCurrentUser();
       const userId = user?.id || 'user';
-      router.push(`/users/${userId}/projects`);
+      router.push(`/project/${userId}/projects`);
     } catch (err: any) {
       const msg = err?.response?.data?.detail || err?.response?.data?.message || err?.message || "Sign up failed";
       setFormError(msg);

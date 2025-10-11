@@ -1,24 +1,20 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 
 const TEXT = {
   SEARCH_PLACEHOLDER: "Search",
-  EXPORT_BUTTON: "Export Project",
 };
 
 interface ProjectSearchBarProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
-  onExport?: () => void;
 }
 
 export function ProjectSearchBar({
   searchQuery,
   onSearchChange,
-  onExport,
 }: ProjectSearchBarProps) {
   return (
     <div className="flex flex-col justify-between gap-2 md:flex-row">
@@ -34,9 +30,6 @@ export function ProjectSearchBar({
           onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
-      <Button onClick={onExport}>
-        {TEXT.EXPORT_BUTTON}
-      </Button>
     </div>
   );
 }

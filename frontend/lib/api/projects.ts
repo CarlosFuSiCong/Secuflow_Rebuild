@@ -8,6 +8,7 @@ import type {
   Project,
   ListProjectsResponse,
 } from "../types/project";
+import type { ApiResponse } from "../types/response";
 
 // Re-export types for backward compatibility
 export type {
@@ -48,4 +49,30 @@ export async function listProjects(params: ListProjectsParams = {}): Promise<Lis
     `/projects/projects/?${queryParams.toString()}`
   );
   return data;
+}
+
+export async function getProject(projectId: string): Promise<Project> {
+  const { data } = await apiClient.get<ApiResponse<Project>>(
+    `/projects/projects/${projectId}/`
+  );
+  if (!data.data) {
+    throw new Error(data.errorMessage || "Failed to fetch project");
+  }
+  return data.data;
+}
+
+export interface BranchesResponse {
+  branches: Branch[];
+  current_branch: string;
+  repository_path: string;
+}
+
+export async function getProjectBranches(projectId: string): Promise<BranchesResponse> {
+  const { data } = await apiClient.get<ApiResponse<BranchesResponse>>(
+    `/projects/projects/${projectId}/branches/`
+  );
+  if (!data.data) {
+    throw new Error(data.errorMessage || "Failed to fetch project branches");
+  }
+  return data.data;
 }
