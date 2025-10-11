@@ -155,16 +155,16 @@ export function ProjectList({ selectedProjectId, onProjectSelect }: ProjectListP
                       : "bg-card border-border hover:bg-accent"
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-foreground text-sm">
+                  <div className="flex items-start justify-between mb-2 gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-foreground text-sm truncate">
                         {project.name}
                       </h4>
-                      <p className="text-xs text-muted-foreground truncate mt-1">
+                      <p className="text-xs text-muted-foreground truncate mt-1" title={project.repo_url}>
                         {project.repo_url}
                       </p>
                     </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskBadgeVariant(project.riskLevel)}`}>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getRiskBadgeVariant(project.riskLevel)}`}>
                       {project.riskLevel}
                     </span>
                   </div>

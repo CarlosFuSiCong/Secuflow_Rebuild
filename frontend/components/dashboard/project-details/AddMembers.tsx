@@ -16,33 +16,6 @@ import type { AddMembersProps } from "@/lib/types";
 import type { User } from "@/lib/types/user";
 import { UserPlus, Loader2 } from "lucide-react";
 
-// Current Members Display Component
-function CurrentMembersDisplay({ members }: { members: any[] }) {
-  if (members.length === 0) return null;
-
-  return (
-    <div className="mt-4 p-3 bg-muted/30 rounded-lg">
-      <h4 className="text-sm font-medium text-foreground mb-2">
-        Current Project Members ({members.length})
-      </h4>
-      <div className="space-y-2 max-h-32 overflow-y-auto">
-        {members.map((member) => (
-          <div key={member.id} className="flex items-center justify-between text-sm">
-            <div className="flex items-center space-x-2">
-              <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center">
-                <span className="text-xs font-medium text-primary">
-                  {member.name.charAt(0)}
-                </span>
-              </div>
-              <span className="text-foreground">{member.name}</span>
-            </div>
-            <span className="text-xs text-muted-foreground">{member.role}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 const USER_ROLES = [
   { value: "Developer", label: "Developer" },
@@ -264,8 +237,6 @@ export function AddMembers({ projectId, existingMembers = [], onMemberAdded }: A
           </div>
         )}
 
-        {/* Current Project Members */}
-        <CurrentMembersDisplay members={existingMembers} />
 
         {/* Add Button */}
         <Button
