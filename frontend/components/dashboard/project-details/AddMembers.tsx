@@ -16,7 +16,6 @@ import type { AddMembersProps } from "@/lib/types";
 import type { User } from "@/lib/types/user";
 import { UserPlus, Loader2 } from "lucide-react";
 
-
 const USER_ROLES = [
   { value: "Developer", label: "Developer" },
   { value: "Contributor", label: "Contributor" },
@@ -236,7 +235,6 @@ export function AddMembers({ projectId, existingMembers = [], onMemberAdded }: A
             {success}
           </div>
         )}
-
 
         {/* Add Button */}
         <Button

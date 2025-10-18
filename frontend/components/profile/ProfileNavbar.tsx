@@ -50,7 +50,6 @@ export function ProfileNavbar() {
     const userId = user?.id || 'user';
 
     return [
-      { href: "/dashboard", label: "Dashboard", isActive: currentPath === "/dashboard" },
       { href: `/project/${userId}/projects`, label: "Projects", isActive: currentPath.startsWith(`/project/${userId}`) },
       { href: "/profile", label: "Profile", isActive: currentPath === "/profile" },
     ];

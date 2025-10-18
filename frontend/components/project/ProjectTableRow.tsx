@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { TableRow, TableCell } from "@/components/ui/table";
 import type { Project } from "@/lib/api/projects";
 import { AlertTriangle, Shield, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface ProjectTableRowProps {
   project: Project;
@@ -31,11 +32,20 @@ function getRiskLevel(score?: number): { label: string; variant: "default" | "se
 }
 
 export function ProjectTableRow({ project }: ProjectTableRowProps) {
+  const router = useRouter();
   const stcRisk = getRiskLevel(project.stc_risk_score);
   const mcstcRisk = getRiskLevel(project.mcstc_risk_score);
 
+  const handleRowClick = () => {
+    router.push(`/dashboard?projectId=${project.id}`);
+  };
+
   return (
-    <TableRow key={project.id} className="cursor-pointer hover:bg-muted/50">
+    <TableRow
+      key={project.id}
+      className="cursor-pointer hover:bg-muted/50"
+      onClick={handleRowClick}
+    >
       <TableCell className="font-medium">
         <div className="flex flex-col">
           <span>{project.name}</span>

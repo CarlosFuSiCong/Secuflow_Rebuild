@@ -1,17 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { ProfileNavbar } from "@/components/profile/ProfileNavbar";
-import { ProjectList } from "@/components/dashboard/ProjectList";
 import { ProjectDetails } from "@/components/dashboard/ProjectDetails";
 import { DASHBOARD_TEXT } from "./constants";
 
 export default function DashboardPage() {
-  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>();
+  const searchParams = useSearchParams();
+  const projectIdFromUrl = searchParams.get("projectId");
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(
+    projectIdFromUrl || undefined
+  );
 
-  const handleProjectSelect = (projectId: string) => {
-    setSelectedProjectId(projectId);
-  };
+  useEffect(() => {
+    if (projectIdFromUrl) {
+      setSelectedProjectId(projectIdFromUrl);
+    }
+  }, [projectIdFromUrl]);
 
   return (
     <div className="bg-background">
@@ -23,23 +29,13 @@ export default function DashboardPage() {
             {DASHBOARD_TEXT.PAGE_TITLE}
           </h1>
           <p className="text-muted-foreground mt-2">
-            Manage your projects, team members, branches, and view analytics
+            View your project details, team members, branches, and analytics
           </p>
         </div>
 
-        <div className="grid grid-cols-12 gap-6">
-          {/* Left Column - Project List */}
-          <div className="col-span-12 lg:col-span-4">
-            <ProjectList
-              selectedProjectId={selectedProjectId}
-              onProjectSelect={handleProjectSelect}
-            />
-          </div>
-
-          {/* Right Column - Project Details */}
-          <div className="col-span-12 lg:col-span-8">
-            <ProjectDetails projectId={selectedProjectId} />
-          </div>
+        {/* Project Details - Full Width */}
+        <div className="w-full">
+          <ProjectDetails projectId={selectedProjectId} />
         </div>
       </main>
     </div>
