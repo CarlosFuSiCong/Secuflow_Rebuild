@@ -398,7 +398,7 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
             analysis.stc_value = float(stc_value)
             analysis.coordination_requirements_total = int(np.sum(cr_matrix > 0))
             analysis.coordination_actuals_total = int(np.sum(ca_matrix > 0))
-            analysis.missed_coordination_count = len([c for c in results_data['contributors'] if c['missed_coordination_count'] > 0])
+            analysis.missed_coordination_count = len([c for c in results_data['developers'] if c['missed_coordination_count'] > 0])
             analysis.unnecessary_coordination_count = 0  # Calculate if needed
             analysis.contributors_count = len(all_users)
             analysis.files_count = dependency_matrix.shape[0]
@@ -411,6 +411,7 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
             analysis.save()
             
             # Optional: Still save JSON for backward compatibility or debugging
+            results_filename = None
             if getattr(settings, 'STC_SAVE_JSON_BACKUP', False):
                 results_filename = f"stc_results_{analysis.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
                 results_path = os.path.join(tnm_output_dir, results_filename)
@@ -436,7 +437,7 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
             
             return ApiResponse.success(
                 data={
-                    'analysis_id': analysis.id,
+                    'analysis_id': str(analysis.id),
                     'stc_value': float(stc_value),
                     'results_file': results_filename,
                     'top_missed_coordination': results_data['developers'][:10]
