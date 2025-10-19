@@ -10,6 +10,7 @@ import base64
 class User(AbstractUser):
     """Custom user model with UUID primary key and password strength requirements."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(unique=True, help_text="Email address (must be unique)")
     
     # Password strength configuration
     password_min_length = models.IntegerField(default=8, help_text="Minimum password length")

@@ -186,6 +186,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         if not email:
             raise serializers.ValidationError("Email is required")
         
+        # Check if email is already registered
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({
+                "email": "This email address is already registered. Please use a different email or try logging in."
+            })
+        
         # Use full email as username
         username = email
         
