@@ -45,10 +45,13 @@ export async function listProjects(params: ListProjectsParams = {}): Promise<Lis
   if (params.page) queryParams.append('page', String(params.page));
   if (params.page_size) queryParams.append('page_size', String(params.page_size));
 
-  const { data } = await apiClient.get<ListProjectsResponse>(
+  const { data } = await apiClient.get<ApiResponse<ListProjectsResponse>>(
     `/projects/projects/?${queryParams.toString()}`
   );
-  return data;
+  if (!data.data) {
+    throw new Error(data.errorMessage || "Failed to fetch projects");
+  }
+  return data.data;
 }
 
 export async function getProject(projectId: string): Promise<Project> {

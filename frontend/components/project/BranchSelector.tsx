@@ -35,7 +35,7 @@ export function BranchSelector({
   }
 
   return (
-    <div className="space-y-20">
+    <div className="space-y-2">
       <Label htmlFor="branch-select">{TEXT.LABEL_BRANCH}</Label>
       <Select
         value={selectedBranch}

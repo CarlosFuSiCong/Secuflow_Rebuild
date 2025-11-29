@@ -8,7 +8,7 @@ import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { UserMenu } from "./UserMenu";
-import { getCurrentUser } from "@/lib/api/users";
+import { fetchCurrentUser } from "@/lib/api/users";
 import type { User } from "@/lib/types/user";
 
 // Navigation links configuration - will be generated dynamically with username
@@ -31,7 +31,7 @@ export function ProfileNavbar() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const resp = await getCurrentUser();
+        const resp = await fetchCurrentUser();
         if (resp.succeed && resp.data) {
           setUser(resp.data);
         }

@@ -108,9 +108,18 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
 
   const stats = {
     memberCount: project.members_count || 0,
-    stcScore: project.stc_risk_score ? 1 - project.stc_risk_score : 0,
-    riskLevel: project.stc_risk_score && project.stc_risk_score >= 0.7 ? "High" :
-              project.stc_risk_score && project.stc_risk_score >= 0.4 ? "Medium" : "Low"
+    stcScore:
+      project.stc_risk_score !== undefined && project.stc_risk_score !== null
+        ? 1 - project.stc_risk_score
+        : 0,
+    riskLevel:
+      project.stc_risk_score !== undefined && project.stc_risk_score !== null
+        ? project.stc_risk_score >= 0.7
+          ? "High"
+          : project.stc_risk_score >= 0.4
+          ? "Medium"
+          : "Low"
+        : "High",
   };
 
   const handleBranchChange = (branchName: string) => {

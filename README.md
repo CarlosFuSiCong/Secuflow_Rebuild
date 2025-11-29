@@ -22,7 +22,7 @@ git submodule update --init --recursive
 
 # 2. Build TNM CLI locally (first time or after TNM changes)
 # Requires JDK 11+
-./tnm/gradlew :cli:shadowJar
+cd tnm && ./gradlew :cli:shadowJar
 
 # 3. Start backend services
 docker-compose up -d --build
@@ -30,7 +30,7 @@ docker-compose up -d --build
 # 4. Initialize database (first time only)
 docker-compose exec backend python manage.py migrate
 docker-compose exec backend python manage.py createsuperuser --username admin --email admin@example.com --noinput
-docker-compose exec backend python manage.py shell -c "from django.contrib.auth.models import User; u = User.objects.get(username='admin'); u.set_password('admin123'); u.save(); print('Password set successfully')"
+docker-compose exec backend python manage.py shell -c "from django.contrib.auth.models import User; user = User.objects.get(username='admin'); user.set_password('admin123'); user.save(); print('Password set successfully')"
 
 # 5. Start frontend
 cd frontend
@@ -189,7 +189,7 @@ docker-compose exec backend python manage.py migrate
 docker-compose exec backend python manage.py createsuperuser --username admin --email admin@example.com --noinput
 
 # 3. Set superuser password
-docker-compose exec backend python manage.py shell -c "from django.contrib.auth.models import User; u = User.objects.get(username='admin'); u.set_password('admin123'); u.save(); print('Password set successfully')"
+docker-compose exec backend python manage.py shell -c "from django.contrib.auth.models import User; user = User.objects.get(username='admin'); user.set_password('admin123'); user.save(); print('Password set successfully')"
 ```
 
 #### Daily Operations

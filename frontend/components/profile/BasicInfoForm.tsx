@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getCurrentUser, updateProfile } from "@/lib/api/users";
+import { fetchCurrentUser, updateProfile } from "@/lib/api/users";
 import type { User } from "@/lib/types/user";
 import { FormField } from "./FormField";
 import { FormContainer } from "./FormContainer";
@@ -36,7 +36,7 @@ export function BasicInfoForm() {
     apiCall: updateProfile,
     onSuccess: async () => {
       // Refresh user data
-      const me = await getCurrentUser();
+      const me = await fetchCurrentUser();
       if (me.succeed && me.data) {
         setUser(me.data);
         const newFirstName = me.data.first_name || "";
@@ -60,7 +60,7 @@ export function BasicInfoForm() {
     const load = async () => {
       setLoadingUser(true);
       try {
-        const resp = await getCurrentUser();
+        const resp = await fetchCurrentUser();
         if (resp.succeed && resp.data) {
           setUser(resp.data);
           const loadedFirstName = resp.data.first_name || "";

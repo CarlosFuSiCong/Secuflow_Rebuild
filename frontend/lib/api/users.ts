@@ -32,7 +32,7 @@ export async function changePassword(oldPassword: string, newPassword: string, n
   return data;
 }
 
-export async function getCurrentUser(): Promise<ApiResponse<User>> {
+export async function fetchCurrentUser(): Promise<ApiResponse<User>> {
   const { data } = await apiClient.get<ApiResponse<User>>("/users/me/");
   return data;
 }
