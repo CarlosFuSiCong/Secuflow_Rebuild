@@ -5,3 +5,4 @@ export { TeamMembersList } from "./TeamMembersList";
 export { ProjectTabs } from "./ProjectTabs";
 export { EmptyState, LoadingState, ErrorState } from "./StateComponents";
 export { AddMembers } from "./AddMembers";
+export { DeleteProjectButton } from "./DeleteProjectButton";

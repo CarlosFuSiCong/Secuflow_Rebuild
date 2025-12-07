@@ -19,6 +19,7 @@ import {
   LoadingState,
   ErrorState
 } from "./project-details";
+import { STCMatrix } from "./project-details/STCMatrix";
 import type { ProjectMember } from "@/lib/types";
 
 export function ProjectDetails({ projectId }: ProjectDetailsProps) {
@@ -168,6 +169,25 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
                     console.log("Member added, should refresh data");
                   }}
                 />
+
+                {/* STC Matrix Visualization */}
+                <div className="mt-6">
+                  <h4 className="text-lg font-semibold text-foreground mb-4">
+                    Communication Congruence Matrix
+                  </h4>
+                  {project.latest_stc_result ? (
+                    <STCMatrix analysisId={project.latest_stc_result.id} />
+                  ) : (
+                    <Card className="p-6 flex flex-col items-center justify-center text-center space-y-2 min-h-[300px]">
+                      <div className="text-muted-foreground">
+                        No STC analysis data available.
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Run an analysis to see the developer coordination matrix.
+                      </p>
+                    </Card>
+                  )}
+                </div>
               </div>
             </div>
           </Card>

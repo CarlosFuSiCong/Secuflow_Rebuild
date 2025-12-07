@@ -93,3 +93,10 @@ export async function addProjectMember(projectId: string, request: AddMemberRequ
   );
   return data;
 }
+
+export async function deleteProject(projectId: string): Promise<ApiResponse<void>> {
+  const { data } = await apiClient.delete<ApiResponse<void>>(
+    `/projects/projects/${projectId}/`
+  );
+  return data;
+}

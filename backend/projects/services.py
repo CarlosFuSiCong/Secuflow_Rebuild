@@ -225,6 +225,10 @@ class ProjectService:
             if repo_url:
                 try:
                     clone_result = ProjectService.clone_repository_for_project(project, repo_url)
+                    
+                    # Trigger async TNM analysis after successful clone
+                    ProjectService.trigger_tnm_analysis_async(project)
+                    
                     return {
                         'project': project,
                         'success': True,

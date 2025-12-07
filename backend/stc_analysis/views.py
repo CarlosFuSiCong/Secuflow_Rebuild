@@ -235,7 +235,7 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
                 all_file_ids.update(user_files.keys())
             for file_deps in dependency_data.values():
                 all_file_ids.update(file_deps.keys())
-                all_file_ids.add(int(list(dependency_data.keys())[0]) if dependency_data else 0)
+            all_file_ids.update(dependency_data.keys())
             
             num_users = len(all_user_ids)
             num_files = len(all_file_ids)
@@ -468,6 +468,143 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
                 error_code="STC_ANALYSIS_ERROR"
             )
         
+    @action(detail=True, methods=['get'])
+    def matrix(self, request, pk=None):
+        """
+        Get STC matrix data for visualization.
+        
+        GET /api/stc/analyses/{id}/matrix/
+        """
+        analysis = self.get_object()
+        user_id = request.user.id if request.user else None
+        
+        logger.info(f"Retrieving STC matrix data {analysis.id}", extra={
+            'user_id': user_id,
+            'analysis_id': analysis.id
+        })
+        
+        try:
+            if not analysis.is_completed:
+                return ApiResponse.error(
+                    error_message="Analysis not completed yet",
+                    error_code="ANALYSIS_NOT_COMPLETED",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Use stored TNM output dir or default
+            tnm_output_dir = analysis.tnm_output_dir
+            if not tnm_output_dir or not os.path.exists(tnm_output_dir):
+                # Try to construct default path
+                repos_root = getattr(settings, 'TNM_OUTPUT_DIR', '/app/tnm_output')
+                branch = analysis.branch_analyzed or 'main'
+                tnm_output_dir = f"{repos_root}/project_{analysis.project.id}_{branch.replace('/', '_')}"
+            
+            # Check files
+            assignment_path = os.path.join(tnm_output_dir, 'AssignmentMatrix.json')
+            dependency_path = os.path.join(tnm_output_dir, 'FileDependencyMatrix.json')
+            id_to_user_path = os.path.join(tnm_output_dir, 'idToUser.json')
+            
+            if not (os.path.exists(assignment_path) and os.path.exists(dependency_path)):
+                return ApiResponse.error(
+                    error_message="TNM matrix data not found",
+                    error_code="TNM_DATA_NOT_FOUND",
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+                
+            # Load data
+            with open(assignment_path, 'r') as f:
+                assignment_data = json.load(f)
+            
+            with open(dependency_path, 'r') as f:
+                dependency_data = json.load(f)
+                
+            with open(id_to_user_path, 'r') as f:
+                id_to_user = json.load(f)
+            
+            # Process matrices
+            all_user_ids = set(assignment_data.keys())
+            all_file_ids = set()
+            for user_files in assignment_data.values():
+                all_file_ids.update(user_files.keys())
+            for file_deps in dependency_data.values():
+                all_file_ids.update(file_deps.keys())
+            all_file_ids.update(dependency_data.keys())
+                
+            num_users = len(all_user_ids)
+            num_files = len(all_file_ids)
+            
+            assignment_matrix = self._load_sparse_matrix(assignment_data, num_users, num_files)
+            dependency_matrix = self._load_sparse_matrix(dependency_data, num_files, num_files)
+            
+            all_users = sorted([str(uid) for uid in all_user_ids], key=lambda x: int(x))
+            
+            service = STCService(project_id=str(analysis.project.id))
+            
+            # Calculate CR and CA
+            cr_matrix = service.calculate_cr_from_assignment_dependency(
+                assignment_matrix, 
+                dependency_matrix
+            )
+            
+            file_modifiers = {}
+            for user_id, files in assignment_data.items():
+                for file_id, count in files.items():
+                    if count > 0:
+                        if file_id not in file_modifiers:
+                            file_modifiers[file_id] = set()
+                        file_modifiers[file_id].add(str(user_id))
+            
+            ca_matrix = service.calculate_ca_from_file_modifiers(
+                file_modifiers,
+                all_users
+            )
+            
+            # Format response for heatmap
+            users = []
+            for uid in all_users:
+                user_info = id_to_user.get(uid, f"User {uid}")
+                users.append({'id': uid, 'name': user_info})
+            
+            matrix_data = []
+            for i in range(len(all_users)):
+                for j in range(len(all_users)):
+                    if i == j: continue
+                    
+                    status = 'none'
+                    cr = cr_matrix[i, j] > 0
+                    ca = ca_matrix[i, j] > 0
+                    
+                    if cr and ca:
+                        status = 'congruent'
+                    elif cr and not ca:
+                        status = 'missed'
+                    elif not cr and ca:
+                        status = 'unnecessary'
+                        
+                    if status != 'none':
+                        matrix_data.append({
+                            'x': users[i]['name'],
+                            'y': users[j]['name'],
+                            'status': status,
+                            'value': 1 if status == 'congruent' else (2 if status == 'missed' else 3)
+                        })
+                        
+            return ApiResponse.success(
+                data={
+                    'users': users,
+                    'matrix': matrix_data,
+                    'stc_value': analysis.stc_value
+                },
+                message="STC matrix data retrieved successfully"
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to get STC matrix: {e}", exc_info=True)
+            return ApiResponse.internal_error(
+                error_message="Failed to retrieve STC matrix",
+                error_code="STC_MATRIX_ERROR"
+            )
+
     @action(detail=True, methods=['get'])
     def results(self, request, pk=None):
         """
