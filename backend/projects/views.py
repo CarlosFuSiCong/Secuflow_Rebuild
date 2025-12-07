@@ -103,20 +103,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         
         # For detail actions, return an unsliced queryset to avoid DRF filtering on a sliced QS
         # which raises: "Cannot filter a query once a slice has been taken."
-        if getattr(self, 'action', None) and self.action != 'list':
-            return Project.objects.all()
+        if getattr(self, 'action', None) != 'list':
+            return ProjectService.get_user_projects(user_profile)
         
         # List action: use service-layer search (may apply slicing for manual pagination)
-        query = self.request.query_params.get('q')
-        repo_type = self.request.query_params.get('repo_type')
-        role = self.request.query_params.get('role')
-        sort_by = self.request.query_params.get('sort', '-created_at')
-        include_deleted = self.request.query_params.get('include_deleted', '').lower() == 'true'
-        
-        # Validate sort field
-        valid_sort_fields = ['created_at', '-created_at', 'name', '-name', 'repo_type', '-repo_type']
-        if sort_by not in valid_sort_fields:
-            sort_by = '-created_at'
         
         # Return all objects for list action here because we override list() method
         # to handle pagination manually via service layer.
