@@ -19,7 +19,7 @@ const TEXT = {
   BUTTON_RESET: "Reset",
 };
 
-export function AddProjectSection() {
+export function AddProjectSection({ onProjectAdded }: { onProjectAdded?: () => void }) {
   const {
     repoUrl,
     setRepoUrl,
@@ -29,6 +29,13 @@ export function AddProjectSection() {
     handleValidateAndCreate,
     handleReset,
   } = useAddProject();
+
+  const handleImport = async () => {
+    const success = await handleValidateAndCreate();
+    if (success && onProjectAdded) {
+      onProjectAdded();
+    }
+  };
 
   return (
     <section className="flex flex-col gap-4 lg:gap-6">
@@ -48,7 +55,7 @@ export function AddProjectSection() {
           <RepositoryInput
             repoUrl={repoUrl}
             onRepoUrlChange={setRepoUrl}
-            onValidate={handleValidateAndCreate}
+            onValidate={handleImport}
             isValidating={isProcessing}
             isDisabled={isProcessing || !!repoInfo}
             validationError={error}

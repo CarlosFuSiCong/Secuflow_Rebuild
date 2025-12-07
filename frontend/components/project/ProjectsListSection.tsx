@@ -15,7 +15,11 @@ const TEXT = {
   NO_PROJECTS: "No projects found",
 };
 
-export function ProjectsListSection() {
+export function ProjectsListSection({
+  useProjectsData,
+}: {
+  useProjectsData: ReturnType<typeof useProjects>;
+}) {
   const [searchQuery, setSearchQuery] = useState("");
   const [enhancedProjects, setEnhancedProjects] = useState<EnhancedProject[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
@@ -27,7 +31,7 @@ export function ProjectsListSection() {
     allProjectsLoading,
     searchProjectsLocally,
     handleSearch,
-  } = useProjects();
+  } = useProjectsData;
 
   // Enhance projects with branch count and calculated fields
   useEffect(() => {

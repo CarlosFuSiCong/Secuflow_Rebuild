@@ -49,6 +49,7 @@ export async function listProjects(params: ListProjectsParams = {}): Promise<Lis
     `/projects/projects/?${queryParams.toString()}`
   );
   if (!data.data) {
+    console.error("Invalid API response format for listProjects:", data);
     throw new Error(data.errorMessage || "Failed to fetch projects");
   }
   return data.data;

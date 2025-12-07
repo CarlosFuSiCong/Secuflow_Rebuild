@@ -43,7 +43,9 @@ export function useProjects() {
       }
     } catch (err: any) {
       console.error("Fetch projects error:", err);
-      console.error("Error response:", err?.response);
+      if (err?.response) {
+        console.error("Error response:", err.response);
+      }
 
       const msg =
         err?.response?.data?.errorMessage ||
@@ -176,5 +178,6 @@ export function useProjects() {
     allProjects,
     allProjectsLoading,
     searchProjectsLocally,
+    fetchAllProjects,
   };
 }
