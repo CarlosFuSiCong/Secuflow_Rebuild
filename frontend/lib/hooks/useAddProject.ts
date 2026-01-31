@@ -4,34 +4,66 @@ import { useState } from "react";
 import { validateRepository, createProject } from "@/lib/api";
 import type { ValidateRepositoryData } from "@/lib/types/project";
 
+type ImportStep = 'input' | 'validating' | 'validated' | 'creating' | 'completed';
+
 export function useAddProject() {
   const [repoUrl, setRepoUrl] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentStep, setCurrentStep] = useState<ImportStep>('input');
   const [error, setError] = useState<string | null>(null);
   const [repoInfo, setRepoInfo] = useState<ValidateRepositoryData | null>(null);
 
-  // Combined validate and create operation
-  const handleValidateAndCreate = async () => {
+  const isProcessing = currentStep === 'validating' || currentStep === 'creating';
+
+  // Step 1: Validate repository only
+  const handleValidate = async () => {
     if (!repoUrl.trim()) {
       setError("Please enter a repository URL");
-      return;
+      return false;
     }
 
-    setIsProcessing(true);
+    setCurrentStep('validating');
     setError(null);
     setRepoInfo(null);
 
     try {
-      // Step 1: Validate repository
       const response = await validateRepository(repoUrl);
 
       if (!response.data?.valid) {
         setError("Invalid repository URL or repository not found");
-        return;
+        setCurrentStep('input');
+        return false;
       }
 
-      // Step 2: Create project automatically
-      const projectName = repoUrl.split('/').pop()?.replace('.git', '') || 'project';
+      // Success: move to validated state
+      setRepoInfo(response.data);
+      setCurrentStep('validated');
+      return true;
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.errorMessage ||
+        err?.response?.data?.message ||
+        err?.response?.data?.detail ||
+        err?.message ||
+        "Failed to validate repository";
+      setError(msg);
+      setCurrentStep('input');
+      return false;
+    }
+  };
+
+  // Step 2: Create project after validation
+  const handleCreate = async (projectName?: string, description?: string, branch?: string) => {
+    if (!repoInfo || currentStep !== 'validated') {
+      setError("Please validate the repository first");
+      return false;
+    }
+
+    setCurrentStep('creating');
+    setError(null);
+
+    try {
+      // Use provided name or extract from URL
+      const name = projectName || repoUrl.split('/').pop()?.replace('.git', '') || 'project';
 
       let repoType = 'github';
       if (repoUrl.includes('gitlab')) {
@@ -41,14 +73,13 @@ export function useAddProject() {
       }
 
       await createProject({
-        name: projectName,
+        name,
         repo_url: repoUrl,
         repo_type: repoType,
+        description: description || undefined,
       });
 
-      // Success: show repository info
-      setRepoInfo(response.data);
-
+      setCurrentStep('completed');
       return true;
     } catch (err: any) {
       const msg =
@@ -56,11 +87,10 @@ export function useAddProject() {
         err?.response?.data?.message ||
         err?.response?.data?.detail ||
         err?.message ||
-        "Failed to validate and import repository";
+        "Failed to create project";
       setError(msg);
+      setCurrentStep('validated');
       return false;
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -68,15 +98,18 @@ export function useAddProject() {
     setRepoUrl("");
     setRepoInfo(null);
     setError(null);
+    setCurrentStep('input');
   };
 
   return {
     repoUrl,
     setRepoUrl,
+    currentStep,
     isProcessing,
     error,
     repoInfo,
-    handleValidateAndCreate,
+    handleValidate,
+    handleCreate,
     handleReset,
   };
 }
