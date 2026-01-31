@@ -90,6 +90,10 @@ backend/tnm_repositories/
 backend/tnm-cli.jar
 /ssrn-4640248.pdf
 
+# Test/UI template folders (don't upload to GitHub)
+frontend/test/
+test/
+
 # Misc
 *.swp
 *.swo
@@ -97,3 +101,5 @@ backend/tnm-cli.jar
 JSS_Appendix.pdf
 algorithms.py
 mc_stc.py
+frontend/INTEGRATION_SUMMARY.md
+frontend/API_INTEGRATION_GUIDE.md

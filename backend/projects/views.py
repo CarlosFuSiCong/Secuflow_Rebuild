@@ -103,29 +103,84 @@ class ProjectViewSet(viewsets.ModelViewSet):
         
         # For detail actions, return an unsliced queryset to avoid DRF filtering on a sliced QS
         # which raises: "Cannot filter a query once a slice has been taken."
-        if getattr(self, 'action', None) and self.action != 'list':
-            return Project.objects.all()
+        if getattr(self, 'action', None) != 'list':
+            return ProjectService.get_user_projects(user_profile)
         
         # List action: use service-layer search (may apply slicing for manual pagination)
-        query = self.request.query_params.get('q')
-        repo_type = self.request.query_params.get('repo_type')
-        role = self.request.query_params.get('role')
-        sort_by = self.request.query_params.get('sort', '-created_at')
-        include_deleted = self.request.query_params.get('include_deleted', '').lower() == 'true'
+        
+        # Return all objects for list action here because we override list() method
+        # to handle pagination manually via service layer.
+        return Project.objects.none()
+
+    def list(self, request, *args, **kwargs):
+        """
+        List projects using service layer search.
+        Overrides default list to avoid double pagination issues with sliced querysets.
+        """
+        user_profile = getattr(request.user, 'profile', None)
+        if not user_profile:
+             return ApiResponse.success(data={
+                'results': [],
+                'count': 0,
+                'next': None,
+                'previous': None
+            })
+
+        query = request.query_params.get('q')
+        repo_type = request.query_params.get('repo_type')
+        role = request.query_params.get('role')
+        sort_by = request.query_params.get('sort', '-created_at')
+        include_deleted = request.query_params.get('include_deleted', '').lower() == 'true'
         
         # Validate sort field
         valid_sort_fields = ['created_at', '-created_at', 'name', '-name', 'repo_type', '-repo_type']
         if sort_by not in valid_sort_fields:
             sort_by = '-created_at'
-        
-        return ProjectService.search_projects(
+
+        # Parse pagination
+        try:
+            page = int(request.query_params.get('page', 1))
+            page_size = int(request.query_params.get('page_size', 20))
+        except ValueError:
+            page = 1
+            page_size = 20
+
+        # Use service layer to get paginated results
+        result = ProjectService.search_projects(
             user_profile=user_profile,
             query=query,
             repo_type=repo_type,
             role=role,
             sort_by=sort_by,
-            include_deleted=include_deleted
-        )['projects']
+            include_deleted=include_deleted,
+            page=page,
+            page_size=page_size
+        )
+
+        serializer = ProjectListSerializer(result['projects'], many=True)
+        
+        # Manually construct paginated response
+        base_url = request.build_absolute_uri().split('?')[0]
+        
+        next_link = None
+        if page < result['total_pages']:
+            params = request.query_params.copy()
+            params['page'] = page + 1
+            next_link = f"{base_url}?{params.urlencode()}"
+            
+        previous_link = None
+        if page > 1:
+            params = request.query_params.copy()
+            params['page'] = page - 1
+            previous_link = f"{base_url}?{params.urlencode()}"
+
+        return ApiResponse.success(data={
+            'results': serializer.data,
+            'count': result['count'],
+            'next': next_link,
+            'previous': previous_link
+        })
+
     
     def create(self, request, *args, **kwargs):
         """Create a new project using service layer."""
