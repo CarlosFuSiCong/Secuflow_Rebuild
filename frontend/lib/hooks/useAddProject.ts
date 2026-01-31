@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { validateRepository, createProject } from "@/lib/api";
-import type { ValidateRepositoryData } from "@/lib/types/project";
+import type { ValidateRepositoryData, CreateProjectData } from "@/lib/types/project";
 
 type ImportStep = 'input' | 'validating' | 'validated' | 'creating' | 'completed';
 
@@ -11,6 +11,7 @@ export function useAddProject() {
   const [currentStep, setCurrentStep] = useState<ImportStep>('input');
   const [error, setError] = useState<string | null>(null);
   const [repoInfo, setRepoInfo] = useState<ValidateRepositoryData | null>(null);
+  const [createdProject, setCreatedProject] = useState<CreateProjectData | null>(null);
 
   const isProcessing = currentStep === 'validating' || currentStep === 'creating';
 
@@ -92,12 +93,17 @@ export function useAddProject() {
         repoType = 'bitbucket';
       }
 
-      await createProject({
+      const response = await createProject({
         name,
         repo_url: repoUrl,
         repo_type: repoType,
         description: description || undefined,
       });
+
+      // Save created project data
+      if (response.data) {
+        setCreatedProject(response.data);
+      }
 
       setCurrentStep('completed');
       return true;
@@ -137,6 +143,7 @@ export function useAddProject() {
   const handleReset = () => {
     setRepoUrl("");
     setRepoInfo(null);
+    setCreatedProject(null);
     setError(null);
     setCurrentStep('input');
   };
@@ -148,6 +155,7 @@ export function useAddProject() {
     isProcessing,
     error,
     repoInfo,
+    createdProject,
     handleValidate,
     handleCreate,
     handleReset,

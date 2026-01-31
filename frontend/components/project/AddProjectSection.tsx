@@ -32,6 +32,7 @@ export function AddProjectSection({ onProjectAdded }: { onProjectAdded?: () => v
     isProcessing,
     error,
     repoInfo,
+    createdProject,
     handleValidate,
     handleCreate,
     handleReset,
@@ -133,7 +134,8 @@ export function AddProjectSection({ onProjectAdded }: { onProjectAdded?: () => v
           {/* Step 3: Success Message */}
           {isCompleted && (
             <ProjectCreatedSuccess
-              projectName={defaultProjectName}
+              projectId={createdProject?.id}
+              projectName={createdProject?.name || defaultProjectName}
               onReset={handleReset}
             />
           )}
