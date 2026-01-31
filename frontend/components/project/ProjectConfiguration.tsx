@@ -38,6 +38,7 @@ interface ProjectConfigurationProps {
   defaultName: string;
   onCreateProject: (config: ProjectConfigData) => void;
   isCreating: boolean;
+  error?: string | null;
 }
 
 export function ProjectConfiguration({
@@ -46,6 +47,7 @@ export function ProjectConfiguration({
   defaultName,
   onCreateProject,
   isCreating,
+  error,
 }: ProjectConfigurationProps) {
   const [projectName, setProjectName] = useState(defaultName);
   const [selectedBranch, setSelectedBranch] = useState(defaultBranch);
@@ -133,6 +135,13 @@ export function ProjectConfiguration({
           <div className="flex items-center gap-2 text-sm text-blue-600">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>{TEXT.STATUS_CREATING}</span>
+          </div>
+        )}
+
+        {/* Error message */}
+        {error && !isCreating && (
+          <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+            {error}
           </div>
         )}
 

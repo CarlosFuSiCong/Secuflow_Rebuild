@@ -39,12 +39,32 @@ export function useAddProject() {
       setCurrentStep('validated');
       return true;
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.errorMessage ||
-        err?.response?.data?.message ||
-        err?.response?.data?.detail ||
-        err?.message ||
-        "Failed to validate repository";
+      let msg = "Failed to validate repository";
+      
+      // Try to extract error message from various response formats
+      if (err?.response?.data?.errorMessage) {
+        msg = err.response.data.errorMessage;
+      } else if (err?.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (err?.response?.data?.detail) {
+        msg = err.response.data.detail;
+      } else if (err?.message) {
+        msg = err.message;
+      }
+
+      // Handle array format error messages (e.g., ["Error message"])
+      if (typeof msg === 'string' && msg.startsWith('[') && msg.includes('"')) {
+        try {
+          const parsed = JSON.parse(msg);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            msg = parsed[0];
+          }
+        } catch {
+          // If parsing fails, clean up the string format
+          msg = msg.replace(/^\['?|'?\]$/g, '').replace(/["']/g, '');
+        }
+      }
+
       setError(msg);
       setCurrentStep('input');
       return false;
@@ -82,12 +102,32 @@ export function useAddProject() {
       setCurrentStep('completed');
       return true;
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.errorMessage ||
-        err?.response?.data?.message ||
-        err?.response?.data?.detail ||
-        err?.message ||
-        "Failed to create project";
+      let msg = "Failed to create project";
+      
+      // Try to extract error message from various response formats
+      if (err?.response?.data?.errorMessage) {
+        msg = err.response.data.errorMessage;
+      } else if (err?.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (err?.response?.data?.detail) {
+        msg = err.response.data.detail;
+      } else if (err?.message) {
+        msg = err.message;
+      }
+
+      // Handle array format error messages (e.g., ["Error message"])
+      if (typeof msg === 'string' && msg.startsWith('[') && msg.includes('"')) {
+        try {
+          const parsed = JSON.parse(msg);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            msg = parsed[0];
+          }
+        } catch {
+          // If parsing fails, clean up the string format
+          msg = msg.replace(/^\['?|'?\]$/g, '').replace(/["']/g, '');
+        }
+      }
+
       setError(msg);
       setCurrentStep('validated');
       return false;

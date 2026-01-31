@@ -126,6 +126,7 @@ export function AddProjectSection({ onProjectAdded }: { onProjectAdded?: () => v
               defaultName={defaultProjectName}
               onCreateProject={handleCreateProject}
               isCreating={isCreating}
+              error={error}
             />
           )}
 
