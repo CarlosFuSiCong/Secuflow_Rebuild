@@ -7,6 +7,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.conf import settings
+from django.utils import timezone
 
 from .models import STCAnalysis
 from .serializers import (
@@ -420,7 +421,7 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
             # Update project's last_risk_check_at to indicate STC is complete
             # Note: stc_risk_score is a @property calculated from latest analysis
             project = analysis.project
-            project.last_risk_check_at = datetime.now()
+            project.last_risk_check_at = timezone.now()
             project.save(update_fields=['last_risk_check_at'])
             
             # Optional: Still save JSON for backward compatibility or debugging

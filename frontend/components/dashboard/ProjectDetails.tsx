@@ -698,7 +698,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
           )}
 
           {/* Current Branch Stats */}
-          <ProjectCharts project={project} />
+          <ProjectCharts projectId={projectId} branchName={selectedBranch} />
         </div>
       )}
     </div>
