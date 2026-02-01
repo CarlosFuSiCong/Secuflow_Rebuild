@@ -678,6 +678,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if os.path.exists(tnm_output_dir):
                 # Canonicalize the base directory to prevent directory traversal
                 tnm_output_dir_real = os.path.realpath(tnm_output_dir)
+                # Ensure trailing separator for proper prefix matching
+                if not tnm_output_dir_real.endswith(os.sep):
+                    tnm_output_dir_real += os.sep
                 
                 for item in os.listdir(tnm_output_dir):
                     if item.startswith(project_output_pattern):
@@ -685,15 +688,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         item_path_real = os.path.realpath(item_path)
                         
                         # Security check: ensure item_path is actually within tnm_output_dir
+                        # Use separator-aware prefix check to prevent /app/tnm_output vs /app/tnm_output_evil
                         if not item_path_real.startswith(tnm_output_dir_real):
                             logger.warning(f"Potential directory traversal attempt detected for project {project.id}, item: {item}")
                             continue
                         
                         # Check if key output files exist
                         required_files = ['AssignmentMatrix.json', 'FileDependencyMatrix.json', 'idToUser.json']
+                        # Ensure each file path is within the item directory
+                        item_path_real_sep = item_path_real if item_path_real.endswith(os.sep) else item_path_real + os.sep
                         files_exist = all(
                             os.path.exists(os.path.join(item_path_real, f)) and 
-                            os.path.realpath(os.path.join(item_path_real, f)).startswith(item_path_real)
+                            os.path.realpath(os.path.join(item_path_real, f)).startswith(item_path_real_sep)
                             for f in required_files
                         )
                         if files_exist:
