@@ -12,7 +12,7 @@ export const DASHBOARD_TEXT = {
   STAT_RISK_LEVEL: "Risk Level",
   // Tabs
   TAB_OVERVIEW: "Overview",
-  TAB_MEMBERS: "Team Members",
+  TAB_MEMBERS: "Contributors",
   TAB_BRANCHES: "Branches",
   TAB_ANALYTICS: "Analytics",
   // Charts
