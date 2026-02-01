@@ -284,10 +284,15 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
 
   // Handle STC analysis
   const handleRunSTCAnalysis = async () => {
+    if (!project.repository_path) {
+      setAnalysisMessage("Repository path not available. Please complete TNM analysis first.");
+      return;
+    }
+    
     setRunningSTCAnalysis(true);
     setAnalysisMessage(null);
     try {
-      await triggerSTCAnalysis(projectId, selectedBranch);
+      await triggerSTCAnalysis(projectId, selectedBranch, project.repository_path);
       setAnalysisMessage("STC analysis started successfully!");
       setTimeout(async () => {
         const updatedProject = await getProject(projectId);
@@ -304,10 +309,15 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
 
   // Handle MC-STC analysis
   const handleRunMCSTCAnalysis = async () => {
+    if (!project.repository_path) {
+      setAnalysisMessage("Repository path not available. Please complete TNM analysis first.");
+      return;
+    }
+    
     setRunningMCSTCAnalysis(true);
     setAnalysisMessage(null);
     try {
-      await triggerMCSTCAnalysis(projectId, selectedBranch);
+      await triggerMCSTCAnalysis(projectId, selectedBranch, project.repository_path);
       setAnalysisMessage("MC-STC analysis started successfully!");
       setTimeout(async () => {
         const updatedProject = await getProject(projectId);
