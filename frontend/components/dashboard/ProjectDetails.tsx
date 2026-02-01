@@ -35,6 +35,23 @@ import { Badge } from "@/components/ui/badge";
 
 type AnalysisStep = "tnm" | "stc" | "classification" | "mcstc" | "complete";
 
+/**
+ * Convert repository_path to TNM output directory path
+ * repository_path: /app/tnm_repositories/project_123
+ * tnm_output_dir: /app/tnm_output/project_123
+ */
+function getTnmOutputDir(repositoryPath: string | undefined): string | null {
+  if (!repositoryPath) return null;
+  
+  // Extract project_id from repository path
+  const match = repositoryPath.match(/project_(\d+)/);
+  if (!match) return null;
+  
+  const projectId = match[1];
+  // Construct TNM output directory path
+  return `/app/tnm_output/project_${projectId}`;
+}
+
 export function ProjectDetails({ projectId }: ProjectDetailsProps) {
   // State management
   const [selectedBranch, setSelectedBranch] = useState("main");
@@ -266,6 +283,11 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
           }
         } catch (err) {
           console.error("Error polling project status:", err);
+          // On error, stop polling to prevent infinite failures
+          clearInterval(pollInterval);
+          setAnalysisMessage('Error checking analysis status. Please refresh the page.');
+          setRunningTNMAnalysis(false);
+          setIsSwitchingBranch(false);
         }
       }, 5000); // Poll every 5 seconds
       
@@ -283,15 +305,17 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
 
   // Handle STC analysis
   const handleRunSTCAnalysis = async () => {
-    if (!project.repository_path) {
-      setAnalysisMessage("Repository path not available. Please complete TNM analysis first.");
+    const tnmOutputDir = getTnmOutputDir(project?.repository_path);
+    
+    if (!tnmOutputDir) {
+      setAnalysisMessage("TNM output directory not available. Please complete TNM analysis first.");
       return;
     }
     
     setRunningSTCAnalysis(true);
     setAnalysisMessage(null);
     try {
-      await triggerSTCAnalysis(projectId, selectedBranch, project.repository_path);
+      await triggerSTCAnalysis(projectId, selectedBranch, tnmOutputDir);
       setAnalysisMessage("STC analysis started successfully!");
       setTimeout(async () => {
         const updatedProject = await getProject(projectId);
@@ -308,15 +332,17 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
 
   // Handle MC-STC analysis
   const handleRunMCSTCAnalysis = async () => {
-    if (!project.repository_path) {
-      setAnalysisMessage("Repository path not available. Please complete TNM analysis first.");
+    const tnmOutputDir = getTnmOutputDir(project?.repository_path);
+    
+    if (!tnmOutputDir) {
+      setAnalysisMessage("TNM output directory not available. Please complete TNM analysis first.");
       return;
     }
     
     setRunningMCSTCAnalysis(true);
     setAnalysisMessage(null);
     try {
-      await triggerMCSTCAnalysis(projectId, selectedBranch, project.repository_path);
+      await triggerMCSTCAnalysis(projectId, selectedBranch, tnmOutputDir);
       setAnalysisMessage("MC-STC analysis started successfully!");
       setTimeout(async () => {
         const updatedProject = await getProject(projectId);
