@@ -676,12 +676,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
             completed = False
             
             if os.path.exists(tnm_output_dir):
+                # Canonicalize the base directory to prevent directory traversal
+                tnm_output_dir_real = os.path.realpath(tnm_output_dir)
+                
                 for item in os.listdir(tnm_output_dir):
                     if item.startswith(project_output_pattern):
                         item_path = os.path.join(tnm_output_dir, item)
+                        item_path_real = os.path.realpath(item_path)
+                        
+                        # Security check: ensure item_path is actually within tnm_output_dir
+                        if not item_path_real.startswith(tnm_output_dir_real):
+                            logger.warning(f"Potential directory traversal attempt detected for project {project.id}, item: {item}")
+                            continue
+                        
                         # Check if key output files exist
                         required_files = ['AssignmentMatrix.json', 'FileDependencyMatrix.json', 'idToUser.json']
-                        files_exist = all(os.path.exists(os.path.join(item_path, f)) for f in required_files)
+                        files_exist = all(
+                            os.path.exists(os.path.join(item_path_real, f)) and 
+                            os.path.realpath(os.path.join(item_path_real, f)).startswith(item_path_real)
+                            for f in required_files
+                        )
                         if files_exist:
                             completed = True
                             break

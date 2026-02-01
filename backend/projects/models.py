@@ -132,6 +132,7 @@ class Project(models.Model):
         """
         Calculate STC risk score based on latest STC analysis for current branch.
         Risk score = 1 - STC value (higher STC means lower risk)
+        Returns None if no analysis exists for current branch.
         """
         try:
             current_branch = self.default_branch or 'main'
@@ -143,13 +144,16 @@ class Project(models.Model):
                 return round(1.0 - latest_stc.stc_value, 3)
         except Exception:
             pass
-        return None  # No analysis for current branch
+        # Return None to indicate no analysis, not 1.0 (which would be misleading)
+        # Frontend must handle None explicitly
+        return None
     
     @property
     def mcstc_risk_score(self):
         """
         Calculate MC-STC risk score based on latest MC-STC analysis for current branch.
         Risk score = 1 - MC-STC value (higher MC-STC means lower risk)
+        Returns None if no analysis exists for current branch.
         """
         try:
             current_branch = self.default_branch or 'main'
@@ -161,7 +165,9 @@ class Project(models.Model):
                 return round(1.0 - latest_mcstc.mcstc_value, 3)
         except Exception:
             pass
-        return None  # No analysis for current branch
+        # Return None to indicate no analysis, not 1.0 (which would be misleading)
+        # Frontend must handle None explicitly
+        return None
     
     def needs_risk_assessment(self, max_age_days: int = 7) -> bool:
         """

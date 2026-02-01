@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Card from "@/components/horizon/Card";
 import { ProjectCharts } from "./ProjectCharts";
 import { DASHBOARD_TEXT } from "@/app/dashboard/constants";
@@ -50,6 +50,9 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
   const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<AnalysisStep>("tnm");
   const [selectedSTCId, setSelectedSTCId] = useState<string | undefined>(undefined);
+  
+  // Use ref for pollInterval to persist across renders and avoid closure issues
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedMCSTCId, setSelectedMCSTCId] = useState<string | undefined>(undefined);
   const [detailsBranch, setDetailsBranch] = useState<string>("main");
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -94,20 +97,20 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
     fetchProjectDetails();
 
     // Poll for TNM completion if needed
-    let pollInterval: NodeJS.Timeout | null = null;
     const startPolling = async () => {
       try {
         const projectData = await getProject(projectId);
         const tnmComplete = !!projectData.repository_path;
         
         if (!tnmComplete) {
-          pollInterval = setInterval(async () => {
+          pollIntervalRef.current = setInterval(async () => {
             try {
               const updatedProject = await getProject(projectId);
               setProject(updatedProject);
               
-              if (updatedProject.repository_path && pollInterval) {
-                clearInterval(pollInterval);
+              if (updatedProject.repository_path && pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
               }
             } catch (err) {
               console.error("Error polling project status:", err);
@@ -122,8 +125,9 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
     startPolling();
 
     return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
     };
   }, [projectId]);
@@ -162,13 +166,8 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
     setRunningTNMAnalysis(true);
     setAnalysisMessage(null);
     try {
-      // Call backend API to re-run TNM for selected branch
-      // TODO: Implement backend endpoint for TNM re-run
-      setAnalysisMessage(`TNM analysis started for branch: ${selectedBranch}`);
-      setTimeout(async () => {
-        const updatedProject = await getProject(projectId);
-        setProject(updatedProject);
-      }, 3000);
+      // Backend endpoint not yet implemented
+      setAnalysisMessage("TNM re-run functionality is not yet available. Please contact support.");
     } catch (err: any) {
       console.error("Failed to trigger TNM analysis:", err);
       setAnalysisMessage(err?.response?.data?.message || "Failed to start TNM analysis");

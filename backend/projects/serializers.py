@@ -103,9 +103,13 @@ class ProjectSerializer(serializers.ModelSerializer):
         return ProjectContributor.objects.filter(project=obj).count()
     
     def get_latest_stc_result(self, obj):
-        """Get the latest STC analysis result for this project."""
+        """Get the latest STC analysis result for the current branch."""
         try:
-            latest_stc = obj.stc_analyses.filter(is_completed=True).first()
+            current_branch = obj.default_branch or 'main'
+            latest_stc = obj.stc_analyses.filter(
+                is_completed=True,
+                branch_analyzed=current_branch
+            ).first()
             if latest_stc:
                 return {
                     'id': str(latest_stc.id),
@@ -124,9 +128,13 @@ class ProjectSerializer(serializers.ModelSerializer):
         return None
     
     def get_latest_mcstc_result(self, obj):
-        """Get the latest MC-STC analysis result for this project."""
+        """Get the latest MC-STC analysis result for the current branch."""
         try:
-            latest_mcstc = obj.mcstc_analyses.filter(is_completed=True).first()
+            current_branch = obj.default_branch or 'main'
+            latest_mcstc = obj.mcstc_analyses.filter(
+                is_completed=True,
+                branch_analyzed=current_branch
+            ).first()
             if latest_mcstc:
                 return {
                     'id': str(latest_mcstc.id),
@@ -188,9 +196,13 @@ class ProjectListSerializer(serializers.ModelSerializer):
         return ProjectContributor.objects.filter(project=obj).count()
     
     def get_latest_stc_result(self, obj):
-        """Get the latest STC analysis result for this project."""
+        """Get the latest STC analysis result for the current branch."""
         try:
-            latest_stc = obj.stc_analyses.filter(is_completed=True).first()
+            current_branch = obj.default_branch or 'main'
+            latest_stc = obj.stc_analyses.filter(
+                is_completed=True,
+                branch_analyzed=current_branch
+            ).first()
             if latest_stc:
                 return {
                     'id': str(latest_stc.id),
@@ -209,9 +221,13 @@ class ProjectListSerializer(serializers.ModelSerializer):
         return None
     
     def get_latest_mcstc_result(self, obj):
-        """Get the latest MC-STC analysis result for this project."""
+        """Get the latest MC-STC analysis result for the current branch."""
         try:
-            latest_mcstc = obj.mcstc_analyses.filter(is_completed=True).first()
+            current_branch = obj.default_branch or 'main'
+            latest_mcstc = obj.mcstc_analyses.filter(
+                is_completed=True,
+                branch_analyzed=current_branch
+            ).first()
             if latest_mcstc:
                 return {
                     'id': str(latest_mcstc.id),

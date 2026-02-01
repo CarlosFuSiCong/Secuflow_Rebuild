@@ -61,7 +61,7 @@ export function AnalyticsHistory({ projectId, onViewDetails }: AnalyticsHistoryP
         `/mcstc/analyses/?project_id=${projectId}`
       );
       
-      const stcAnalyses = stcResponse.data.data?.results || [];
+      const stcAnalyses = stcResponse.data.data?.results || stcResponse.data.results || [];
       const mcstcAnalyses = mcstcResponse.data.data?.results || mcstcResponse.data.results || [];
       
       // Group by branch - show latest STC and MC-STC for each branch
