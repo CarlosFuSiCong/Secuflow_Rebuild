@@ -1021,7 +1021,13 @@ class ProjectService:
                     '--files-ownership', f"{project_output_root}/FilesOwnership.json",
                     '--potential-ownership', f"{project_output_root}/PotentialAuthorship.json",
                 ]
-                proc = service.run_cli('FilesOwnershipMiner', files_options, [branch], timeout=getattr(settings, 'TNM_TIMEOUT', None))
+                proc = service.run_cli(
+                    'FilesOwnershipMiner',
+                    files_options,
+                    [branch],
+                    cwd=project_output_root,
+                    timeout=getattr(settings, 'TNM_TIMEOUT', None)
+                )
                 if proc.returncode != 0:
                     logger.error(f"FilesOwnershipMiner failed: {proc.stderr}")
 
