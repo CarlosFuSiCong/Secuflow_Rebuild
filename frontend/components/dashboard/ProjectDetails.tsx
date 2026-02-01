@@ -260,7 +260,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
       let pollCount = 0;
       const maxPolls = 60; // 5 minutes max (60 * 5s)
       
-      const pollInterval = setInterval(async () => {
+      pollIntervalRef.current = setInterval(async () => {
         pollCount++;
         
         try {
@@ -270,13 +270,19 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
           
           // If TNM is complete, stop polling
           if (updatedProject.repository_path) {
-            clearInterval(pollInterval);
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
             setAnalysisMessage(`Branch switched and TNM analysis completed for ${newBranch}!`);
             setCurrentStep("stc");
             setRunningTNMAnalysis(false);
             setIsSwitchingBranch(false);
           } else if (pollCount >= maxPolls) {
-            clearInterval(pollInterval);
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
             setAnalysisMessage('TNM analysis is taking longer than expected. Please refresh the page to check status.');
             setRunningTNMAnalysis(false);
             setIsSwitchingBranch(false);
@@ -284,7 +290,10 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
         } catch (err) {
           console.error("Error polling project status:", err);
           // On error, stop polling to prevent infinite failures
-          clearInterval(pollInterval);
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
           setAnalysisMessage('Error checking analysis status. Please refresh the page.');
           setRunningTNMAnalysis(false);
           setIsSwitchingBranch(false);

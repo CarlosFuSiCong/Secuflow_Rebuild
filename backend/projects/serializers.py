@@ -119,7 +119,7 @@ class ProjectSerializer(serializers.ModelSerializer):
                     'contributors_count': latest_stc.contributors_count,
                     'coordination_efficiency': (
                         latest_stc.coordination_actuals_total / latest_stc.coordination_requirements_total
-                        if latest_stc.coordination_requirements_total and latest_stc.coordination_requirements_total > 0
+                        if latest_stc.coordination_requirements_total > 0
                         else 0
                     )
                 }
@@ -212,7 +212,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
                     'contributors_count': latest_stc.contributors_count,
                     'coordination_efficiency': (
                         latest_stc.coordination_actuals_total / latest_stc.coordination_requirements_total
-                        if latest_stc.coordination_requirements_total and latest_stc.coordination_requirements_total > 0
+                        if latest_stc.coordination_requirements_total > 0
                         else 0
                     )
                 }
