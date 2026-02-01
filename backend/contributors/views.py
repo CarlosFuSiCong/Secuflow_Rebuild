@@ -343,25 +343,24 @@ def project_contributor_analysis(request, project_id):
 class ProjectContributorClassificationSerializer(serializers.ModelSerializer):
     """Serializer for updating contributor role classifications."""
     
-    contributor_name = serializers.CharField(source='contributor.github_login', read_only=True)
+    contributor_login = serializers.CharField(source='contributor.github_login', read_only=True)
     contributor_email = serializers.CharField(source='contributor.email', read_only=True)
-    activity_level = serializers.SerializerMethodField()
+    activity_level = serializers.ReadOnlyField()
     functional_role_display = serializers.CharField(source='get_functional_role_display', read_only=True)
     
     class Meta:
         model = ProjectContributor
         fields = [
-            'id', 'contributor_name', 'contributor_email', 'total_modifications',
-            'files_modified', 'functional_role', 'functional_role_display', 
-            'is_core_contributor', 'role_confidence', 'activity_level'
+            'id', 'contributor_login', 'contributor_email', 'commits_count',
+            'total_modifications', 'files_modified', 'functional_role', 
+            'functional_role_display', 'is_core_contributor', 'role_confidence', 
+            'activity_level', 'last_active_at'
         ]
         read_only_fields = [
-            'id', 'contributor_name', 'contributor_email', 'total_modifications',
-            'files_modified', 'role_confidence'
+            'id', 'contributor_login', 'contributor_email', 'commits_count',
+            'total_modifications', 'files_modified', 'role_confidence', 
+            'activity_level', 'last_active_at'
         ]
-    
-    def get_activity_level(self, obj):
-        return obj.activity_level
 
 
 class FunctionalRoleChoiceSerializer(serializers.Serializer):

@@ -2,36 +2,98 @@
 
 import { useState } from "react";
 import { validateRepository, createProject } from "@/lib/api";
-import type { ValidateRepositoryData } from "@/lib/types/project";
+import type { ValidateRepositoryData, CreateProjectData } from "@/lib/types/project";
 
-export function useAddProject() {
+type ImportStep = 'input' | 'validating' | 'validated' | 'creating' | 'completed';
+
+export interface AnalysisOptions {
+  runSTC: boolean;
+  runMCSTC: boolean;
+}
+
+export function useAddProject(onProjectAdded?: () => void) {
   const [repoUrl, setRepoUrl] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentStep, setCurrentStep] = useState<ImportStep>('input');
   const [error, setError] = useState<string | null>(null);
   const [repoInfo, setRepoInfo] = useState<ValidateRepositoryData | null>(null);
+  const [createdProject, setCreatedProject] = useState<CreateProjectData | null>(null);
+  const [analysisOptions, setAnalysisOptions] = useState<AnalysisOptions>({
+    runSTC: false,
+    runMCSTC: false,
+  });
 
-  // Combined validate and create operation
-  const handleValidateAndCreate = async () => {
+  const isProcessing = currentStep === 'validating' || currentStep === 'creating';
+
+  // Step 1: Validate repository only
+  const handleValidate = async () => {
     if (!repoUrl.trim()) {
       setError("Please enter a repository URL");
-      return;
+      return false;
     }
 
-    setIsProcessing(true);
+    setCurrentStep('validating');
     setError(null);
     setRepoInfo(null);
 
     try {
-      // Step 1: Validate repository
       const response = await validateRepository(repoUrl);
 
       if (!response.data?.valid) {
         setError("Invalid repository URL or repository not found");
-        return;
+        setCurrentStep('input');
+        return false;
       }
 
-      // Step 2: Create project automatically
-      const projectName = repoUrl.split('/').pop()?.replace('.git', '') || 'project';
+      // Success: move to validated state
+      setRepoInfo(response.data);
+      setCurrentStep('validated');
+      return true;
+    } catch (err: any) {
+      let msg = "Failed to validate repository";
+      
+      // Try to extract error message from various response formats
+      if (err?.response?.data?.errorMessage) {
+        msg = err.response.data.errorMessage;
+      } else if (err?.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (err?.response?.data?.detail) {
+        msg = err.response.data.detail;
+      } else if (err?.message) {
+        msg = err.message;
+      }
+
+      // Handle array format error messages (e.g., ["Error message"])
+      if (typeof msg === 'string' && msg.startsWith('[') && msg.includes('"')) {
+        try {
+          const parsed = JSON.parse(msg);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            msg = parsed[0];
+          }
+        } catch {
+          // If parsing fails, clean up the string format
+          msg = msg.replace(/^\['?|'?\]$/g, '').replace(/["']/g, '');
+        }
+      }
+
+      setError(msg);
+      setCurrentStep('input');
+      return false;
+    }
+  };
+
+  // Step 2: Create project after validation
+  const handleCreate = async (projectName?: string, description?: string, branch?: string) => {
+    if (!repoInfo || currentStep !== 'validated') {
+      setError("Please validate the repository first");
+      return false;
+    }
+
+    setCurrentStep('creating');
+    setError(null);
+
+    try {
+      // Use provided name or extract from URL
+      const name = projectName || repoUrl.split('/').pop()?.replace('.git', '') || 'project';
 
       let repoType = 'github';
       if (repoUrl.includes('gitlab')) {
@@ -40,43 +102,87 @@ export function useAddProject() {
         repoType = 'bitbucket';
       }
 
-      await createProject({
-        name: projectName,
+      const response = await createProject({
+        name,
         repo_url: repoUrl,
         repo_type: repoType,
+        description: description || undefined,
+        default_branch: branch || undefined,
+        auto_run_stc: analysisOptions.runSTC,
+        auto_run_mcstc: analysisOptions.runMCSTC,
       });
 
-      // Success: show repository info
-      setRepoInfo(response.data);
+      // Save created project data
+      if (response.data) {
+        setCreatedProject(response.data);
+      }
 
+      setCurrentStep('completed');
+      
+      // Notify parent component to refresh project list
+      if (onProjectAdded) {
+        onProjectAdded();
+      }
+      
+      // Auto-reset after 3 seconds
+      setTimeout(() => {
+        handleReset();
+      }, 3000);
+      
       return true;
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.errorMessage ||
-        err?.response?.data?.message ||
-        err?.response?.data?.detail ||
-        err?.message ||
-        "Failed to validate and import repository";
+      let msg = "Failed to create project";
+      
+      // Try to extract error message from various response formats
+      if (err?.response?.data?.errorMessage) {
+        msg = err.response.data.errorMessage;
+      } else if (err?.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (err?.response?.data?.detail) {
+        msg = err.response.data.detail;
+      } else if (err?.message) {
+        msg = err.message;
+      }
+
+      // Handle array format error messages (e.g., ["Error message"])
+      if (typeof msg === 'string' && msg.startsWith('[') && msg.includes('"')) {
+        try {
+          const parsed = JSON.parse(msg);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            msg = parsed[0];
+          }
+        } catch {
+          // If parsing fails, clean up the string format
+          msg = msg.replace(/^\['?|'?\]$/g, '').replace(/["']/g, '');
+        }
+      }
+
       setError(msg);
+      setCurrentStep('validated');
       return false;
-    } finally {
-      setIsProcessing(false);
     }
   };
 
   const handleReset = () => {
     setRepoUrl("");
     setRepoInfo(null);
+    setCreatedProject(null);
     setError(null);
+    setCurrentStep('input');
   };
 
   return {
     repoUrl,
     setRepoUrl,
+    currentStep,
     isProcessing,
     error,
     repoInfo,
-    handleValidateAndCreate,
+    createdProject,
+    analysisOptions,
+    setAnalysisOptions,
+    handleValidate,
+    handleCreate,
     handleReset,
   };
 }

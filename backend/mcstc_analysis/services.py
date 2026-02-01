@@ -363,6 +363,9 @@ class MCSTCAnalysisService:
                 analysis.top_coordination_pairs = coordination_pairs[:10]
                 analysis.is_completed = True
                 
+                # Note: mcstc_risk_score is a @property calculated from latest analysis
+                # No need to set it manually - it will be computed automatically
+                
             else:
                 analysis.error_message = "Insufficient role data for MC-STC analysis"
             

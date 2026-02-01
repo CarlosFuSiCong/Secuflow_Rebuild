@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Card from "@/components/horizon/Card";
-import { getSTCMatrix } from "@/lib/api/stc";
+import { getLatestSTCAnalysis, getSTCMatrix } from "@/lib/api/stc";
 import type { STCMatrixResponse } from "@/lib/types/stc";
 import { ApexOptions } from "apexcharts";
 
@@ -11,10 +11,11 @@ import { ApexOptions } from "apexcharts";
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 interface STCMatrixProps {
-  analysisId: string;
+  projectId?: string;
+  analysisId?: string;
 }
 
-export function STCMatrix({ analysisId }: STCMatrixProps) {
+export function STCMatrix({ projectId, analysisId }: STCMatrixProps) {
   const [data, setData] = useState<STCMatrixResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,20 +23,33 @@ export function STCMatrix({ analysisId }: STCMatrixProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await getSTCMatrix(analysisId);
+        let targetAnalysisId = analysisId;
+        
+        // If no analysisId provided, get latest for projectId
+        if (!targetAnalysisId && projectId) {
+          const latestAnalysis = await getLatestSTCAnalysis(projectId);
+          targetAnalysisId = latestAnalysis.id;
+        }
+        
+        if (!targetAnalysisId) {
+          throw new Error("No analysis ID or project ID provided");
+        }
+        
+        // Get matrix data for this analysis
+        const response = await getSTCMatrix(targetAnalysisId);
         setData(response);
       } catch (err: any) {
         console.error("Failed to load STC matrix:", err);
-        setError("Failed to load STC matrix data");
+        setError(err.message || "Failed to load STC matrix data");
       } finally {
         setLoading(false);
       }
     };
 
-    if (analysisId) {
+    if (projectId || analysisId) {
       fetchData();
     }
-  }, [analysisId]);
+  }, [projectId, analysisId]);
 
   if (loading) {
     return (

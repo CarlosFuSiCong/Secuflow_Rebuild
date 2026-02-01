@@ -14,7 +14,10 @@ class STCAnalysisSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'project', 'project_name', 'project_repo_url',
             'analysis_date', 'is_completed', 'use_monte_carlo',
-            'monte_carlo_iterations', 'results_file', 'error_message'
+            'monte_carlo_iterations', 'stc_value', 'branch_analyzed',
+            'contributors_count', 'coordination_requirements_total',
+            'coordination_actuals_total', 'missed_coordination_count',
+            'unnecessary_coordination_count', 'results_file', 'error_message'
         ]
         read_only_fields = ['id', 'analysis_date', 'project_name', 'project_repo_url']
 

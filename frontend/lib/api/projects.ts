@@ -100,3 +100,23 @@ export async function deleteProject(projectId: string): Promise<ApiResponse<void
   );
   return data;
 }
+
+export interface SwitchBranchRequest {
+  branch_id: string;
+}
+
+export interface SwitchBranchResponse {
+  project: Project;
+  current_branch: string;
+}
+
+export async function switchBranch(projectId: string, branchId: string): Promise<SwitchBranchResponse> {
+  const { data } = await apiClient.post<ApiResponse<SwitchBranchResponse>>(
+    `/projects/projects/${projectId}/switch_branch/`,
+    { branch_id: branchId }
+  );
+  if (!data.data) {
+    throw new Error(data.errorMessage || "Failed to switch branch");
+  }
+  return data.data;
+}

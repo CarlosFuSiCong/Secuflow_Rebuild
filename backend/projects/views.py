@@ -640,6 +640,90 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 error_code="BRANCHES_RETRIEVAL_ERROR"
             )
     
+    @action(detail=True, methods=['get'], url_path='tnm-status')
+    def tnm_status(self, request, id=None):
+        """Check if TNM analysis is complete for this project."""
+        try:
+            project = self.get_object()
+            user_profile = request.user.profile
+            
+            # Check if user has access to the project
+            if not ProjectService.check_project_access(project, user_profile):
+                return ApiResponse.forbidden(
+                    error_message="You do not have permission to view this project",
+                    error_code="ACCESS_DENIED"
+                )
+            
+            # Check if repository is cloned
+            if not project.repository_path:
+                return ApiResponse.success(
+                    data={'completed': False, 'message': 'Repository not cloned yet'},
+                    message="TNM analysis not started"
+                )
+            
+            # Check if TNM output files exist
+            import os
+            from django.conf import settings
+            
+            tnm_output_dir = getattr(settings, 'TNM_OUTPUT_DIR', '/app/tnm_output')
+            
+            # If running locally, use backend paths
+            if not os.path.exists(tnm_output_dir):
+                tnm_output_dir = os.path.join(os.path.dirname(settings.BASE_DIR), 'tnm_output')
+            
+            # Look for project-specific output directory
+            project_output_pattern = f"project_{project.id}"
+            completed = False
+            
+            if os.path.exists(tnm_output_dir):
+                # Canonicalize the base directory to prevent directory traversal
+                tnm_output_dir_real = os.path.realpath(tnm_output_dir)
+                # Ensure trailing separator for proper prefix matching
+                if not tnm_output_dir_real.endswith(os.sep):
+                    tnm_output_dir_real += os.sep
+                
+                for item in os.listdir(tnm_output_dir):
+                    if item.startswith(project_output_pattern):
+                        item_path = os.path.join(tnm_output_dir, item)
+                        item_path_real = os.path.realpath(item_path)
+                        
+                        # Security check: ensure item_path is actually within tnm_output_dir
+                        # Use separator-aware prefix check to prevent /app/tnm_output vs /app/tnm_output_evil
+                        if not item_path_real.startswith(tnm_output_dir_real):
+                            logger.warning(f"Potential directory traversal attempt detected for project {project.id}, item: {item}")
+                            continue
+                        
+                        # Check if key output files exist
+                        required_files = ['AssignmentMatrix.json', 'FileDependencyMatrix.json', 'idToUser.json']
+                        # Ensure each file path is within the item directory
+                        item_path_real_sep = item_path_real if item_path_real.endswith(os.sep) else item_path_real + os.sep
+                        files_exist = all(
+                            os.path.exists(os.path.join(item_path_real, f)) and 
+                            os.path.realpath(os.path.join(item_path_real, f)).startswith(item_path_real_sep)
+                            for f in required_files
+                        )
+                        if files_exist:
+                            completed = True
+                            break
+            
+            return ApiResponse.success(
+                data={
+                    'completed': completed,
+                    'message': 'TNM analysis completed' if completed else 'TNM analysis in progress or not started'
+                },
+                message="TNM status checked successfully"
+            )
+            
+        except Exception as e:
+            logger.error("Error checking TNM status", extra={
+                'error': str(e),
+                'project_id': id
+            }, exc_info=True)
+            return ApiResponse.internal_error(
+                error_message="Failed to check TNM status",
+                error_code="TNM_STATUS_ERROR"
+            )
+    
     @action(detail=True, methods=['post'])
     def switch_branch(self, request, id=None):
         """Switch to a different branch in the project's repository using service layer."""

@@ -8,7 +8,7 @@ import { enhanceProject, type EnhancedProject } from "@/lib/utils/project-helper
 import { getProjectBranches } from "@/lib/api/projects";
 
 const TEXT = {
-  SECTION_TITLE: "Your Projects",
+  SECTION_TITLE: "My Projects",
   SECTION_DESCRIPTION: "View and manage all your imported GitHub projects.",
   LOADING: "Loading projects...",
   ERROR: "Failed to load projects",
@@ -116,7 +116,7 @@ export function ProjectsListSection({
           onPageChange={(page) => {
             // For now, just scroll to top or handle pagination differently
             // Since we're showing filtered results, pagination might need adjustment
-            console.log("Page change:", page);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
       )}
