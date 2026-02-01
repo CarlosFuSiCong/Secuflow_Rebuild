@@ -32,8 +32,6 @@ export function useProjects() {
 
       const response = await listProjects(params);
 
-      console.log("API Response:", response); // Debug log
-
       if (response && response.results) {
         setProjects(response.results);
         setTotalCount(response.count);

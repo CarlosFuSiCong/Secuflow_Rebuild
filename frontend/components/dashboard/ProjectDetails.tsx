@@ -196,12 +196,6 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
         throw new Error(`Branch ${newBranch} does not have a branch_id. Please refresh the branches.`);
       }
 
-      console.log('Switching to branch:', {
-        name: newBranch,
-        branch_id: targetBranch.branch_id,
-        targetBranch
-      });
-
       // Call backend API to switch branch
       const result = await switchBranch(projectId, targetBranch.branch_id);
       
@@ -252,28 +246,20 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
       
       const pollInterval = setInterval(async () => {
         pollCount++;
-        console.log(`Polling attempt ${pollCount}/${maxPolls}`);
         
         try {
           const updatedProject = await getProject(projectId);
-          console.log('Polling result:', {
-            repository_path: updatedProject.repository_path,
-            last_risk_check_at: updatedProject.last_risk_check_at,
-            members_count: updatedProject.members_count
-          });
           
           setProject(updatedProject);
           
           // If TNM is complete, stop polling
           if (updatedProject.repository_path) {
-            console.log('TNM analysis completed! Stopping polling.');
             clearInterval(pollInterval);
             setAnalysisMessage(`Branch switched and TNM analysis completed for ${newBranch}!`);
             setCurrentStep("stc");
             setRunningTNMAnalysis(false);
             setIsSwitchingBranch(false);
           } else if (pollCount >= maxPolls) {
-            console.warn('Max polling attempts reached. Stopping.');
             clearInterval(pollInterval);
             setAnalysisMessage('TNM analysis is taking longer than expected. Please refresh the page to check status.');
             setRunningTNMAnalysis(false);

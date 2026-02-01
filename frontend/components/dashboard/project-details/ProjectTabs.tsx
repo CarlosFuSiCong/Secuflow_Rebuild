@@ -13,8 +13,6 @@ export function ProjectTabs({ activeTab = 'overview', onTabChange }: ProjectTabs
   const handleTabClick = (tabId: string) => {
     if (onTabChange) {
       onTabChange(tabId);
-    } else {
-      console.log(`Switching to tab: ${tabId}`);
     }
   };
 

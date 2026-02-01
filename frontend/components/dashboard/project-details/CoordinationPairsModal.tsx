@@ -95,19 +95,15 @@ export function CoordinationPairsModal({
     setLoading(true);
     setError(null);
     try {
-      console.log('Fetching MC-STC data for ID:', mcstcId);
-      
       // Fetch coordination pairs
       const pairsResult = await mcstcApi.getCoordinationPairs(mcstcId, {
         topN,
         statusFilter: statusFilter === 'all' ? undefined : statusFilter as any
       });
-      console.log('Coordination pairs fetched:', pairsResult);
       setPairs(pairsResult.coordination_pairs);
 
       // Fetch full MC-STC results
       const mcstcResults = await mcstcApi.getMCSTCResults(mcstcId);
-      console.log('MC-STC results fetched:', mcstcResults);
       setMcstcResult(mcstcResults);
     } catch (err: any) {
       console.error("Failed to load MC-STC data:", err);

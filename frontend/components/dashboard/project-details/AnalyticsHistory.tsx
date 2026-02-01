@@ -56,29 +56,13 @@ export function AnalyticsHistory({ projectId, onViewDetails }: AnalyticsHistoryP
         `/stc/analyses/?project_id=${projectId}`
       );
       
-      console.log('=== STC Response ===');
-      console.log('Full Response:', stcResponse);
-      console.log('Response Data:', stcResponse.data);
-      
       // Fetch MC-STC analyses
       const mcstcResponse = await apiClient.get<ApiResponse<any>>(
         `/mcstc/analyses/?project_id=${projectId}`
       );
       
-      console.log('=== MC-STC Response ===');
-      console.log('Full Response:', mcstcResponse);
-      console.log('Response Data:', mcstcResponse.data);
-      console.log('Response Data.data:', mcstcResponse.data.data);
-      console.log('Response Data.data?.results:', mcstcResponse.data.data?.results);
-      
       const stcAnalyses = stcResponse.data.data?.results || [];
       const mcstcAnalyses = mcstcResponse.data.data?.results || mcstcResponse.data.results || [];
-      
-      console.log('=== Analysis History Data ===');
-      console.log('STC Analyses Count:', stcAnalyses.length);
-      console.log('STC Analyses:', stcAnalyses);
-      console.log('MC-STC Analyses Count:', mcstcAnalyses.length);
-      console.log('MC-STC Analyses:', mcstcAnalyses);
       
       // Group by branch - show latest STC and MC-STC for each branch
       const branchMap = new Map<string, any>();
@@ -99,7 +83,6 @@ export function AnalyticsHistory({ projectId, onViewDetails }: AnalyticsHistoryP
       // Group MC-STC analyses by branch (keep latest for each branch)
       mcstcAnalyses.forEach((mcstc: any) => {
         const branch = mcstc.branch_analyzed || '';
-        console.log('Processing MC-STC for branch:', branch, mcstc);
         if (!branchMap.has(branch)) {
           branchMap.set(branch, { branch, stc: null, mcstc: null });
         }
@@ -107,7 +90,6 @@ export function AnalyticsHistory({ projectId, onViewDetails }: AnalyticsHistoryP
         // Keep the latest MC-STC
         if (!existing.mcstc || new Date(mcstc.analysis_date) > new Date(existing.mcstc.analysis_date)) {
           existing.mcstc = mcstc;
-          console.log('Updated MC-STC for branch:', branch, existing);
         }
       });
       
@@ -122,10 +104,6 @@ export function AnalyticsHistory({ projectId, onViewDetails }: AnalyticsHistoryP
           )
         }))
         .sort((a, b) => b.latestDate - a.latestDate);
-      
-      console.log('Branch Map:', branchMap);
-      console.log('Combined Results:', combined);
-      console.log('Total Branches:', combined.length);
       
       setAnalyses(combined);
     } catch (err: any) {

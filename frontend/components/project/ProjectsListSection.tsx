@@ -116,7 +116,7 @@ export function ProjectsListSection({
           onPageChange={(page) => {
             // For now, just scroll to top or handle pagination differently
             // Since we're showing filtered results, pagination might need adjustment
-            console.log("Page change:", page);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
       )}
