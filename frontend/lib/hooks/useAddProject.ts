@@ -6,12 +6,21 @@ import type { ValidateRepositoryData, CreateProjectData } from "@/lib/types/proj
 
 type ImportStep = 'input' | 'validating' | 'validated' | 'creating' | 'completed';
 
-export function useAddProject() {
+export interface AnalysisOptions {
+  runSTC: boolean;
+  runMCSTC: boolean;
+}
+
+export function useAddProject(onProjectAdded?: () => void) {
   const [repoUrl, setRepoUrl] = useState("");
   const [currentStep, setCurrentStep] = useState<ImportStep>('input');
   const [error, setError] = useState<string | null>(null);
   const [repoInfo, setRepoInfo] = useState<ValidateRepositoryData | null>(null);
   const [createdProject, setCreatedProject] = useState<CreateProjectData | null>(null);
+  const [analysisOptions, setAnalysisOptions] = useState<AnalysisOptions>({
+    runSTC: false,
+    runMCSTC: false,
+  });
 
   const isProcessing = currentStep === 'validating' || currentStep === 'creating';
 
@@ -98,6 +107,8 @@ export function useAddProject() {
         repo_url: repoUrl,
         repo_type: repoType,
         description: description || undefined,
+        auto_run_stc: analysisOptions.runSTC,
+        auto_run_mcstc: analysisOptions.runMCSTC,
       });
 
       // Save created project data
@@ -106,6 +117,17 @@ export function useAddProject() {
       }
 
       setCurrentStep('completed');
+      
+      // Notify parent component to refresh project list
+      if (onProjectAdded) {
+        onProjectAdded();
+      }
+      
+      // Auto-reset after 3 seconds
+      setTimeout(() => {
+        handleReset();
+      }, 3000);
+      
       return true;
     } catch (err: any) {
       let msg = "Failed to create project";
@@ -156,6 +178,8 @@ export function useAddProject() {
     error,
     repoInfo,
     createdProject,
+    analysisOptions,
+    setAnalysisOptions,
     handleValidate,
     handleCreate,
     handleReset,

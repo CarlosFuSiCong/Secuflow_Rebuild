@@ -5,6 +5,7 @@ import { TableRow, TableCell } from "@/components/ui/table";
 import type { Project } from "@/lib/api/projects";
 import { AlertTriangle, Shield, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { ProjectAnalysisStatus } from "./ProjectAnalysisStatus";
 
 interface ProjectTableRowProps {
   project: Project;
@@ -36,6 +37,14 @@ export function ProjectTableRow({ project }: ProjectTableRowProps) {
   const stcRisk = getRiskLevel(project.stc_risk_score);
   const mcstcRisk = getRiskLevel(project.mcstc_risk_score);
 
+  // Check if project has completed analysis
+  // Show data when last_risk_check_at exists (STC has run) OR when repository_path exists (TNM complete)
+  const hasBasicAnalysis = !!project.last_risk_check_at;
+  const tnmComplete = !!project.repository_path;  // TNM完成 = 仓库已克隆
+
+  // Contributors can be managed when TNM is complete
+  const canManageContributors = tnmComplete;
+
   const handleRowClick = () => {
     router.push(`/dashboard?projectId=${project.id}`);
   };
@@ -47,49 +56,81 @@ export function ProjectTableRow({ project }: ProjectTableRowProps) {
       onClick={handleRowClick}
     >
       <TableCell className="font-medium">
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-1">
           <span>{project.name}</span>
           <span className="text-xs text-muted-foreground truncate max-w-[200px]">
             {project.repo_url}
           </span>
+          {/* Show analysis progress if not complete */}
+          <ProjectAnalysisStatus
+            projectId={project.id}
+            autoRunSTC={project.auto_run_stc}
+            autoRunMCSTC={project.auto_run_mcstc}
+          />
+          {/* Show contributor management hint when TNM complete but no STC */}
+          {tnmComplete && !hasBasicAnalysis && (
+            <span className="text-xs text-blue-600 dark:text-blue-400">
+              💡 TNM complete - Contributors ready for role assignment
+            </span>
+          )}
         </div>
       </TableCell>
 
       {/* STC Risk Score */}
       <TableCell className="hidden lg:table-cell">
-        <div className="flex items-center gap-2">
-          <Shield className="h-4 w-4 text-muted-foreground" />
-          <Badge variant={stcRisk.variant}>
-            {project.stc_risk_score !== undefined && project.stc_risk_score !== null
-              ? `${project.stc_risk_score}%`
-              : stcRisk.label}
-          </Badge>
-        </div>
+        {hasBasicAnalysis ? (
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-muted-foreground" />
+            <Badge variant={stcRisk.variant}>
+              {project.stc_risk_score !== undefined && project.stc_risk_score !== null
+                ? `${project.stc_risk_score}%`
+                : stcRisk.label}
+            </Badge>
+          </div>
+        ) : tnmComplete ? (
+          <span className="text-xs text-muted-foreground">Ready for analysis</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">Analyzing...</span>
+        )}
       </TableCell>
 
       {/* MCSTC Risk Score */}
       <TableCell className="hidden lg:table-cell">
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          <Badge variant={mcstcRisk.variant}>
-            {project.mcstc_risk_score !== undefined && project.mcstc_risk_score !== null
-              ? `${project.mcstc_risk_score}%`
-              : mcstcRisk.label}
-          </Badge>
-        </div>
+        {hasBasicAnalysis ? (
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <Badge variant={mcstcRisk.variant}>
+              {project.mcstc_risk_score !== undefined && project.mcstc_risk_score !== null
+                ? `${project.mcstc_risk_score}%`
+                : mcstcRisk.label}
+            </Badge>
+          </div>
+        ) : tnmComplete ? (
+          <span className="text-xs text-muted-foreground">Ready for analysis</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">Analyzing...</span>
+        )}
       </TableCell>
 
       {/* Members Count */}
       <TableCell className="hidden md:table-cell">
-        <div className="flex items-center gap-1.5">
-          <Users className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm">{project.members_count}</span>
-        </div>
+        {hasBasicAnalysis ? (
+          <div className="flex items-center gap-1.5">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">{project.members_count}</span>
+          </div>
+        ) : tnmComplete ? (
+          <span className="text-xs text-muted-foreground">Ready</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">-</span>
+        )}
       </TableCell>
 
       {/* Last Analysis */}
       <TableCell className="hidden xl:table-cell text-sm text-muted-foreground">
-        {project.last_risk_check_at ? formatDate(project.last_risk_check_at) : "Not analyzed"}
+        {hasBasicAnalysis
+          ? project.last_risk_check_at ? formatDate(project.last_risk_check_at) : "Not analyzed"
+          : tnmComplete ? "TNM complete" : "Analyzing..."}
       </TableCell>
 
       {/* Created Date */}

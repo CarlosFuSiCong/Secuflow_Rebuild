@@ -33,10 +33,12 @@ export function AddProjectSection({ onProjectAdded }: { onProjectAdded?: () => v
     error,
     repoInfo,
     createdProject,
+    analysisOptions,
+    setAnalysisOptions,
     handleValidate,
     handleCreate,
     handleReset,
-  } = useAddProject();
+  } = useAddProject(onProjectAdded);
 
   const isValidating = currentStep === 'validating';
   const isValidated = currentStep === 'validated';
@@ -45,9 +47,7 @@ export function AddProjectSection({ onProjectAdded }: { onProjectAdded?: () => v
 
   const handleCreateProject = async (config: ProjectConfigData) => {
     const success = await handleCreate(config.name, config.description, config.branch);
-    if (success && onProjectAdded) {
-      onProjectAdded();
-    }
+    // onProjectAdded is now called automatically in handleCreate
   };
 
   // Get default project name from URL
@@ -128,6 +128,8 @@ export function AddProjectSection({ onProjectAdded }: { onProjectAdded?: () => v
               onCreateProject={handleCreateProject}
               isCreating={isCreating}
               error={error}
+              analysisOptions={analysisOptions}
+              onAnalysisOptionsChange={setAnalysisOptions}
             />
           )}
 

@@ -5,7 +5,8 @@ export type Branch = {
   name: string;
   is_current: boolean;
   is_remote?: boolean;
-  branch_id?: string;
+  branch_id: string; // Required for branch switching
+  commit_hash?: string;
 };
 
 // Validate repository response data (inside ApiResponse.data)
@@ -25,6 +26,8 @@ export type CreateProjectRequest = {
   repo_url: string;
   description?: string;
   repo_type?: string;
+  auto_run_stc?: boolean;
+  auto_run_mcstc?: boolean;
 };
 
 // Repository info in create project response
@@ -41,6 +44,7 @@ export type CreateProjectData = {
   name: string;
   repo_url: string;
   default_branch: string;
+  repository_path?: string;
   owner_profile: number;
   owner_id: string;
   owner_username: string;
@@ -58,6 +62,8 @@ export type CreateProjectData = {
   latest_mcstc_result?: any;
   available_branches?: string[];
   suggested_default_branch?: string;
+  auto_run_stc?: boolean;
+  auto_run_mcstc?: boolean;
 };
 
 // API Response: Create Project
@@ -82,6 +88,7 @@ export type Project = {
   repo_url: string;
   repo_type: string;
   default_branch?: string;
+  repository_path?: string;
   owner_id: string;
   owner_username: string;
   members_count: number;
@@ -93,6 +100,8 @@ export type Project = {
   last_risk_check_at?: string;
   latest_stc_result?: any;
   latest_mcstc_result?: any;
+  auto_run_stc?: boolean;
+  auto_run_mcstc?: boolean;
 };
 
 // API Response: List Projects (paginated)

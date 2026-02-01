@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 const TEXT = {
   TITLE: "Project Created Successfully!",
-  MESSAGE: "Your project has been imported and is ready to use.",
+  MESSAGE: "Project created and added to your projects list. Background tasks (cloning and analysis) are running. Check the project list for progress.",
   BUTTON_VIEW: "View Project",
   BUTTON_ADD_ANOTHER: "Add Another Project",
 };
