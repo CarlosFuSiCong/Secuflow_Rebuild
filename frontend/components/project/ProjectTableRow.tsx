@@ -83,7 +83,7 @@ export function ProjectTableRow({ project }: ProjectTableRowProps) {
             <Shield className="h-4 w-4 text-muted-foreground" />
             <Badge variant={stcRisk.variant}>
               {project.stc_risk_score !== undefined && project.stc_risk_score !== null
-                ? `${project.stc_risk_score}%`
+                ? `${(project.stc_risk_score * 100).toFixed(1)}%`
                 : stcRisk.label}
             </Badge>
           </div>
@@ -101,7 +101,7 @@ export function ProjectTableRow({ project }: ProjectTableRowProps) {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             <Badge variant={mcstcRisk.variant}>
               {project.mcstc_risk_score !== undefined && project.mcstc_risk_score !== null
-                ? `${project.mcstc_risk_score}%`
+                ? `${(project.mcstc_risk_score * 100).toFixed(1)}%`
                 : mcstcRisk.label}
             </Badge>
           </div>
