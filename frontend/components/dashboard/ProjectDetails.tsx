@@ -78,7 +78,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
           setCurrentStep("tnm");
         } else if (!projectData.last_risk_check_at) {
           setCurrentStep("stc");
-        } else if (projectData.mcstc_risk_score) {
+        } else if (projectData.mcstc_risk_score !== null && projectData.mcstc_risk_score !== undefined) {
           setCurrentStep("complete");
         } else {
           setCurrentStep("classification");
@@ -410,7 +410,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
 
   // Determine if analysis is complete
   const hasBasicAnalysis = !!project.last_risk_check_at;
-  const hasFullAnalysis = !!project.mcstc_risk_score;
+  const hasFullAnalysis = project.mcstc_risk_score !== null && project.mcstc_risk_score !== undefined;
 
   return (
     <div className="space-y-6">
