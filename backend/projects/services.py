@@ -3,6 +3,7 @@ Project service layer for handling all project-related business logic.
 Separates business logic from views and serializers.
 """
 import os
+import logging
 from django.db import transaction
 from django.db.models import Q, Count
 from django.core.exceptions import ValidationError
@@ -13,6 +14,8 @@ from accounts.models import UserProfile
 from common.git_utils import GitUtils, GitPermissionError
 import threading
 import os
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectService:
@@ -159,6 +162,10 @@ class ProjectService:
                             # Attempt to clone repository upon restore if repo URL is available
                             try:
                                 clone_result = ProjectService.clone_repository_for_project(existing, repo_url)
+                                
+                                # Trigger async TNM analysis after successful clone (restored project)
+                                ProjectService.trigger_tnm_analysis_async(existing)
+                                
                                 return {
                                     'project': existing,
                                     'success': True,
@@ -828,6 +835,7 @@ class ProjectService:
             # Update project with repository information
             project.repo_url = repo_url
             project.default_branch = current_branch
+            project.repository_path = repo_dir
             project.save()
             
             return {
@@ -966,6 +974,8 @@ class ProjectService:
         """
         def _run():
             try:
+                logger.info(f"Starting TNM analysis for project {project.id} ({project.name})")
+                
                 # Late import to avoid circular deps
                 from tnm_integration.services import TnmService
                 branch = project.default_branch or 'main'
@@ -976,26 +986,99 @@ class ProjectService:
                 repo_git_path = f"{repos_root}/project_{project.id}/.git"
                 project_output_root = f"{output_root}/project_{project.id}"
 
-                options = [
-                    '--repository', repo_git_path,
-                    '--developer-knowledge', f"{project_output_root}/DeveloperKnowledge.json",
-                    '--files-ownership', f"{project_output_root}/FilesOwnership.json",
-                    '--potential-ownership', f"{project_output_root}/PotentialAuthorship.json",
-                    branch,
-                ]
+                logger.info(f"TNM paths - repo: {repo_git_path}, output: {project_output_root}, branch: {branch}")
+
+                # Create output directory
+                os.makedirs(project_output_root, exist_ok=True)
 
                 service = TnmService(
                     java_path=getattr(settings, 'TNM_JAVA_PATH', 'java'),
                     tnm_jar=getattr(settings, 'TNM_JAR_PATH', '/app/tnm-cli.jar'),
                     run_script=getattr(settings, 'TNM_RUN_SCRIPT', None),
                 )
-                service.run_cli('FilesOwnershipMiner', options, args=[], timeout=getattr(settings, 'TNM_TIMEOUT', None))
-            except Exception:
-                # swallow
+
+                # Run essential miners for contributor extraction and STC/MC-STC analysis
+                essential_miners = ['AssignmentMatrixMiner', 'FileDependencyMatrixMiner']
+                for miner in essential_miners:
+                    logger.info(f"Running {miner} for project {project.id}")
+                    proc = service.run_cli(
+                        miner,
+                        ['--repository', repo_git_path],
+                        [branch],
+                        cwd=project_output_root,
+                        timeout=getattr(settings, 'TNM_TIMEOUT', None)
+                    )
+                    if proc.returncode != 0:
+                        logger.error(f"{miner} failed with return code {proc.returncode}: {proc.stderr}")
+                    else:
+                        logger.info(f"{miner} completed successfully")
+
+                # Optional: Run FilesOwnershipMiner for additional data
+                logger.info(f"Running FilesOwnershipMiner for project {project.id}")
+                files_options = [
+                    '--repository', repo_git_path,
+                    '--developer-knowledge', f"{project_output_root}/DeveloperKnowledge.json",
+                    '--files-ownership', f"{project_output_root}/FilesOwnership.json",
+                    '--potential-ownership', f"{project_output_root}/PotentialAuthorship.json",
+                    branch,
+                ]
+                proc = service.run_cli('FilesOwnershipMiner', files_options, args=[], timeout=getattr(settings, 'TNM_TIMEOUT', None))
+                if proc.returncode != 0:
+                    logger.error(f"FilesOwnershipMiner failed: {proc.stderr}")
+
+                logger.info(f"TNM analysis completed for project {project.id}")
+
+                # Copy output files from result/ subdirectory to main output directory
+                try:
+                    import json
+                    project_result_dir = os.path.join(project_output_root, 'result')
+                    if os.path.isdir(project_result_dir):
+                        logger.info(f"Copying TNM output files from {project_result_dir}")
+                        filenames_to_copy = [
+                            'idToUser', 'idToFile',
+                            'AssignmentMatrix', 'FileDependencyMatrix'
+                        ]
+                        for name in filenames_to_copy:
+                            src = os.path.join(project_result_dir, name)
+                            if os.path.isfile(src):
+                                target_name = f"{name}.json"
+                                dest = os.path.join(project_output_root, target_name)
+                                logger.info(f"Copying {name} to {dest}")
+                                
+                                with open(src, 'r', encoding='utf-8') as f:
+                                    content = f.read().strip()
+                                
+                                try:
+                                    json_data = json.loads(content)
+                                    with open(dest, 'w', encoding='utf-8') as f:
+                                        json.dump(json_data, f, indent=2, ensure_ascii=False)
+                                    logger.info(f"Successfully copied {name}.json")
+                                except json.JSONDecodeError:
+                                    logger.warning(f"File {name} is not valid JSON, copying as-is")
+                                    with open(dest, 'w', encoding='utf-8') as f:
+                                        f.write(content)
+                except Exception as copy_error:
+                    logger.error(f"Failed to copy output files: {str(copy_error)}", exc_info=True)
+
+                # Import TNM data to database (Contributors)
+                try:
+                    from contributors.services import TNMDataAnalysisService
+                    logger.info(f"Importing TNM data for project {project.id}")
+                    result = TNMDataAnalysisService.analyze_assignment_matrix(
+                        project=project,
+                        tnm_output_dir=project_output_root,
+                        branch=branch
+                    )
+                    logger.info(f"TNM data imported successfully: {result.get('contributors_created', 0)} contributors created")
+                except Exception as import_error:
+                    logger.error(f"Failed to import TNM data for project {project.id}: {str(import_error)}", exc_info=True)
+            except Exception as e:
+                logger.error(f"TNM analysis failed for project {project.id}: {str(e)}", exc_info=True)
                 return
 
         t = threading.Thread(target=_run, daemon=True)
         t.start()
+        logger.info(f"TNM analysis thread started for project {project.id}")
     
     @staticmethod
     def validate_and_clone_repository(repo_url, user_profile):

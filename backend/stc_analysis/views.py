@@ -386,12 +386,19 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
             
             for user_id in sorted(missed_counts.keys(), key=lambda x: missed_counts[x], reverse=True):
                 contributor_login = id_to_user.get(user_id, f"Unknown_{user_id}")
+                user_idx = int(user_id)
+                
+                # Skip if user_id is out of bounds for the matrix
+                if user_idx >= cr_matrix.shape[0]:
+                    logger.warning(f"Skipping user_id {user_id} (index {user_idx}) - out of bounds for matrix size {cr_matrix.shape[0]}")
+                    continue
+                
                 results_data['developers'].append({
                     'user_id': user_id,
                     'contributor_login': contributor_login,
                     'missed_coordination_count': missed_counts[user_id],
-                    'required_coordination': int(np.sum(cr_matrix[int(user_id), :] > 0)),
-                    'actual_coordination': int(np.sum(ca_matrix[int(user_id), :] > 0))
+                    'required_coordination': int(np.sum(cr_matrix[user_idx, :] > 0)),
+                    'actual_coordination': int(np.sum(ca_matrix[user_idx, :] > 0))
                 })
             
             # Save results directly to database
@@ -409,6 +416,12 @@ class STCAnalysisViewSet(viewsets.ModelViewSet):
             analysis.is_completed = True
             analysis.error_message = None
             analysis.save()
+            
+            # Update project's last_risk_check_at to indicate STC is complete
+            # Note: stc_risk_score is a @property calculated from latest analysis
+            project = analysis.project
+            project.last_risk_check_at = datetime.now()
+            project.save(update_fields=['last_risk_check_at'])
             
             # Optional: Still save JSON for backward compatibility or debugging
             results_filename = None

@@ -85,20 +85,22 @@ class ProjectSerializer(serializers.ModelSerializer):
         model = Project
         fields = [
             'id', 'name', 'description', 'repo_url', 'repo_type', 'default_branch',
+            'repository_path', 'auto_run_stc', 'auto_run_mcstc',
             'owner_profile', 'owner_id', 'owner_username', 'owner_email',
             'members_count', 'created_at', 'updated_at', 'is_deleted',
             'stc_risk_score', 'mcstc_risk_score', 'last_risk_check_at',
             'latest_stc_result', 'latest_mcstc_result'
         ]
         read_only_fields = [
-            'id', 'created_at', 'updated_at', 'is_deleted',
+            'id', 'created_at', 'updated_at', 'is_deleted', 'repository_path',
             'stc_risk_score', 'mcstc_risk_score', 'last_risk_check_at',
             'latest_stc_result', 'latest_mcstc_result'
         ]
     
     def get_members_count(self, obj):
-        """Get the number of members in the project."""
-        return obj.members.count()
+        """Get the number of contributors in the project (from TNM analysis)."""
+        from contributors.models import ProjectContributor
+        return ProjectContributor.objects.filter(project=obj).count()
     
     def get_latest_stc_result(self, obj):
         """Get the latest STC analysis result for this project."""
@@ -173,6 +175,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
         model = Project
         fields = [
             'id', 'name', 'description', 'repo_url', 'repo_type',
+            'repository_path', 'auto_run_stc', 'auto_run_mcstc',
             'owner_id', 'owner_username', 'members_count',
             'stc_risk_score', 'mcstc_risk_score',
             'latest_stc_result', 'latest_mcstc_result',
@@ -180,8 +183,9 @@ class ProjectListSerializer(serializers.ModelSerializer):
         ]
     
     def get_members_count(self, obj):
-        """Get the number of members in the project."""
-        return obj.members.count()
+        """Get the number of contributors in the project (from TNM analysis)."""
+        from contributors.models import ProjectContributor
+        return ProjectContributor.objects.filter(project=obj).count()
     
     def get_latest_stc_result(self, obj):
         """Get the latest STC analysis result for this project."""

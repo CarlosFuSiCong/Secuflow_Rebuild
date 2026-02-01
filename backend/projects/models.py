@@ -64,6 +64,20 @@ class Project(models.Model):
         null=True,
         help_text="Default branch name"
     )
+    repository_path = models.CharField(
+        max_length=500,
+        blank=True,
+        null=True,
+        help_text="Local path to cloned repository"
+    )
+    auto_run_stc = models.BooleanField(
+        default=False,
+        help_text="Automatically run STC analysis after TNM completion"
+    )
+    auto_run_mcstc = models.BooleanField(
+        default=False,
+        help_text="Automatically run MC-STC analysis after TNM completion"
+    )
     owner_profile = models.ForeignKey(
         "accounts.UserProfile", 
         on_delete=models.PROTECT, 
@@ -116,30 +130,38 @@ class Project(models.Model):
     @property
     def stc_risk_score(self):
         """
-        Calculate STC risk score based on latest STC analysis.
+        Calculate STC risk score based on latest STC analysis for current branch.
         Risk score = 1 - STC value (higher STC means lower risk)
         """
         try:
-            latest_stc = self.stc_analyses.filter(is_completed=True).first()
+            current_branch = self.default_branch or 'main'
+            latest_stc = self.stc_analyses.filter(
+                is_completed=True,
+                branch_analyzed=current_branch
+            ).first()
             if latest_stc and latest_stc.stc_value is not None:
                 return round(1.0 - latest_stc.stc_value, 3)
         except Exception:
             pass
-        return 1.0  # High risk if no analysis available
+        return None  # No analysis for current branch
     
     @property
     def mcstc_risk_score(self):
         """
-        Calculate MC-STC risk score based on latest MC-STC analysis.
+        Calculate MC-STC risk score based on latest MC-STC analysis for current branch.
         Risk score = 1 - MC-STC value (higher MC-STC means lower risk)
         """
         try:
-            latest_mcstc = self.mcstc_analyses.filter(is_completed=True).first()
+            current_branch = self.default_branch or 'main'
+            latest_mcstc = self.mcstc_analyses.filter(
+                is_completed=True,
+                branch_analyzed=current_branch
+            ).first()
             if latest_mcstc and latest_mcstc.mcstc_value is not None:
                 return round(1.0 - latest_mcstc.mcstc_value, 3)
         except Exception:
             pass
-        return 1.0  # High risk if no analysis available
+        return None  # No analysis for current branch
     
     def needs_risk_assessment(self, max_age_days: int = 7) -> bool:
         """
