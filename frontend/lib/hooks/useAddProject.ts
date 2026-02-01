@@ -107,6 +107,7 @@ export function useAddProject(onProjectAdded?: () => void) {
         repo_url: repoUrl,
         repo_type: repoType,
         description: description || undefined,
+        default_branch: branch || undefined,
         auto_run_stc: analysisOptions.runSTC,
         auto_run_mcstc: analysisOptions.runMCSTC,
       });

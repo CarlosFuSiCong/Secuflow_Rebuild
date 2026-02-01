@@ -26,6 +26,7 @@ export type CreateProjectRequest = {
   repo_url: string;
   description?: string;
   repo_type?: string;
+  default_branch?: string;
   auto_run_stc?: boolean;
   auto_run_mcstc?: boolean;
 };
