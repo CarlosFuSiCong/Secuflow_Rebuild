@@ -428,7 +428,15 @@ def analyze_tnm_contributors(request, project_id):
                 error_message=f"TNM output directory not found: {tnm_output_dir}",
                 error_code="TNM_OUTPUT_NOT_FOUND"
             )
-        
+
+        assignment_path = os.path.join(tnm_output_dir, 'AssignmentMatrix.json')
+        if not os.path.exists(assignment_path):
+            return ApiResponse.error(
+                error_message="TNM analysis data not found. Please run TNM analysis first.",
+                error_code="TNM_DATA_NOT_FOUND",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
         # Determine if we should use async processing
         should_use_async = _should_use_async_analysis(tnm_output_dir, force_async)
         
