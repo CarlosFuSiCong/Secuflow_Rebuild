@@ -1,5 +1,8 @@
 import { apiClient } from './client';
 import type { ApiResponse } from '../types/response';
+import type { STCMatrixResponse } from '../types/stc';
+
+export type { STCMatrixResponse };
 
 export interface STCResult {
   analysis_id: string;
@@ -27,13 +30,6 @@ export async function getSTCResults(analysisId: string): Promise<STCResult> {
     `/stc/analyses/${analysisId}/results/`
   );
   return data.data!;
-}
-
-export interface STCMatrixResponse {
-  analysis_id: string;
-  matrix: number[][];
-  contributors: string[];
-  stc_value: number;
 }
 
 export async function getLatestSTCAnalysis(projectId: string): Promise<any> {
