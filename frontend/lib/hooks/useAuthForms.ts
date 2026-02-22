@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 
 import { login, register as registerApi, getCurrentUser } from "@/lib/api";
 import { signInSchema, type SignInValues, signUpSchema, type SignUpValues } from "@/lib/validation/auth";
@@ -23,6 +24,7 @@ export function useSignInForm() {
     setFormError(null);
     try {
       await login(values.email, values.password);
+      toast.success("Welcome back!");
       const user = getCurrentUser();
       const userId = user?.id || 'user';
       router.push(`/project/${userId}/projects`);
@@ -56,6 +58,7 @@ export function useSignUpForm() {
     setFormError(null);
     try {
       await registerApi(values.email, values.password);
+      toast.success("Account created successfully!");
       const user = getCurrentUser();
       const userId = user?.id || 'user';
       router.push(`/project/${userId}/projects`);

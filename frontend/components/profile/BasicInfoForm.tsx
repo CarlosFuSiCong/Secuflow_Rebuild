@@ -32,7 +32,7 @@ export function BasicInfoForm() {
   const [originalLastName, setOriginalLastName] = useState<string>("");
   const [originalContactEmail, setOriginalContactEmail] = useState<string>("");
 
-  const { loading, error, message, handleSubmit } = useProfileForm({
+  const { loading, handleSubmit } = useProfileForm({
     apiCall: updateProfile,
     onSuccess: async () => {
       // Refresh user data
@@ -107,8 +107,6 @@ export function BasicInfoForm() {
     <FormContainer
       onSubmit={onSubmit}
       loading={loading}
-      error={error}
-      message={message}
       submitText={TEXT.BUTTON_SAVE}
       loadingText={TEXT.BUTTON_SAVING}
     >

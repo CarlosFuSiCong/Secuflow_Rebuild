@@ -26,7 +26,7 @@ export function SecuritySettings() {
   const [newPassword, setNewPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
 
-  const { loading, error, message, handleSubmit } = useProfileForm({
+  const { loading, handleSubmit } = useProfileForm({
     apiCall: ({ oldPassword, newPassword, newPasswordConfirm }: {
       oldPassword: string;
       newPassword: string;
@@ -70,8 +70,6 @@ export function SecuritySettings() {
       <FormContainer
         onSubmit={onSubmit}
         loading={loading}
-        error={error}
-        message={message}
         submitText={TEXT.BUTTON_SAVE}
         loadingText={TEXT.BUTTON_SAVING}
       >

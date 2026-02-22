@@ -24,6 +24,7 @@ import {
   type ContributorUpdate,
 } from "@/lib/api/contributors";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
 
 interface ContributorRoleManagementProps {
   projectId: string;
@@ -39,7 +40,6 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [changes, setChanges] = useState<Map<string, ContributorUpdate>>(new Map());
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -128,19 +128,16 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
 
     setSaving(true);
     setError(null);
-    setSuccessMessage(null);
 
     try {
       const updates = Array.from(changes.values());
       const result = await updateContributorClassifications(projectId, updates);
-      setSuccessMessage(`Successfully updated ${result.updated_count} contributors`);
+      toast.success(`Successfully updated ${result.updated_count} contributors`);
       setChanges(new Map());
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error("Failed to save changes:", err);
-      setError(err?.response?.data?.message || "Failed to save changes");
+      const msg = err?.response?.data?.message || "Failed to save changes";
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -247,17 +244,11 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
         </Button>
       </div>
 
-      {/* Messages */}
+      {/* Load error */}
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {successMessage && (
-        <Alert>
-          <AlertDescription>{successMessage}</AlertDescription>
         </Alert>
       )}
 

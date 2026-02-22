@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 
 interface UseProfileFormOptions<T> {
   apiCall: (data: T) => Promise<any>;
@@ -14,26 +15,22 @@ export function useProfileForm<T>({
   errorMessage = "Update failed",
 }: UseProfileFormOptions<T>) {
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   const handleSubmit = async (data: T) => {
     setLoading(true);
-    setError(null);
-    setMessage(null);
 
     try {
       const resp = await apiCall(data);
       if (resp?.succeed) {
-        setMessage(successMessage);
+        toast.success(successMessage);
         if (onSuccess) {
           onSuccess(resp.data);
         }
       } else {
-        setError(resp?.errorMessage || errorMessage);
+        toast.error(resp?.errorMessage || errorMessage);
       }
     } catch (e: any) {
-      setError(e?.message || errorMessage);
+      toast.error(e?.message || errorMessage);
     } finally {
       setLoading(false);
     }
@@ -41,8 +38,6 @@ export function useProfileForm<T>({
 
   return {
     loading,
-    error,
-    message,
     handleSubmit,
   };
 }

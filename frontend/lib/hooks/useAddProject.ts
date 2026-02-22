@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { validateRepository, createProject } from "@/lib/api";
 import type { ValidateRepositoryData, CreateProjectData } from "@/lib/types/project";
 
@@ -75,6 +76,7 @@ export function useAddProject(onProjectAdded?: () => void) {
         }
       }
 
+      toast.error(msg);
       setError(msg);
       setCurrentStep('input');
       return false;
@@ -118,6 +120,7 @@ export function useAddProject(onProjectAdded?: () => void) {
       }
 
       setCurrentStep('completed');
+      toast.success("Project created successfully!");
       
       // Notify parent component to refresh project list
       if (onProjectAdded) {
@@ -157,6 +160,7 @@ export function useAddProject(onProjectAdded?: () => void) {
         }
       }
 
+      toast.error(msg);
       setError(msg);
       setCurrentStep('validated');
       return false;

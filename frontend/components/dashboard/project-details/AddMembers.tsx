@@ -15,6 +15,7 @@ import { addProjectMember } from "@/lib/api/projects";
 import type { AddMembersProps } from "@/lib/types";
 import type { User } from "@/lib/types/user";
 import { UserPlus, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const USER_ROLES = [
   { value: "Developer", label: "Developer" },
@@ -30,7 +31,6 @@ export function AddMembers({ projectId, existingMembers = [], onMemberAdded }: A
   const [isSearching, setIsSearching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -102,7 +102,6 @@ export function AddMembers({ projectId, existingMembers = [], onMemberAdded }: A
 
     setIsAdding(true);
     setError(null);
-    setSuccess(null);
 
     try {
       await addProjectMember(projectId, {
@@ -110,7 +109,7 @@ export function AddMembers({ projectId, existingMembers = [], onMemberAdded }: A
         role: selectedRole,
       });
 
-      setSuccess("Member added successfully!");
+      toast.success("Member added successfully!");
       setSearchQuery("");
       setSelectedUserId("");
       setSelectedRole("Contributor");
@@ -119,14 +118,10 @@ export function AddMembers({ projectId, existingMembers = [], onMemberAdded }: A
       if (onMemberAdded) {
         onMemberAdded();
       }
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
       console.error("Failed to add member:", err);
-      setError(
-        err?.response?.data?.message || "Failed to add member to project"
-      );
+      const msg = err?.response?.data?.message || "Failed to add member to project";
+      toast.error(msg);
     } finally {
       setIsAdding(false);
     }
@@ -222,17 +217,10 @@ export function AddMembers({ projectId, existingMembers = [], onMemberAdded }: A
           </Select>
         </div>
 
-        {/* Error Message */}
+        {/* Inline validation error */}
         {error && (
           <div className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
             {error}
-          </div>
-        )}
-
-        {/* Success Message */}
-        {success && (
-          <div className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-md">
-            {success}
           </div>
         )}
 
