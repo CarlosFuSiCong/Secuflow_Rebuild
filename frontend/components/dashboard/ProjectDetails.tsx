@@ -200,6 +200,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
 
   // Handle branch switch confirmation
   const handleConfirmBranchSwitch = async (newBranch: string) => {
+    if (!projectId) return;
     setRunningTNMAnalysis(true);
     setIsSwitchingBranch(true);
     setAnalysisMessage(`Switching to branch ${newBranch}...`);
@@ -327,6 +328,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
 
   // Handle STC analysis
   const handleRunSTCAnalysis = async () => {
+    if (!projectId) return;
     const tnmOutputDir = getTnmOutputDir(project?.repository_path);
     
     if (!tnmOutputDir) {
@@ -358,6 +360,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
 
   // Handle MC-STC analysis
   const handleRunMCSTCAnalysis = async () => {
+    if (!projectId) return;
     const tnmOutputDir = getTnmOutputDir(project?.repository_path);
     
     if (!tnmOutputDir) {
