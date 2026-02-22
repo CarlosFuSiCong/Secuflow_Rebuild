@@ -420,17 +420,8 @@ def analyze_tnm_contributors(request, project_id):
                 if os.path.exists(os.path.join(candidate, 'AssignmentMatrix.json')):
                     tnm_output_dir = candidate
                     break
-            if not tnm_output_dir:
-                tnm_output_dir = candidates[0]
 
-        if not os.path.exists(tnm_output_dir):
-            return ApiResponse.error(
-                error_message=f"TNM output directory not found: {tnm_output_dir}",
-                error_code="TNM_OUTPUT_NOT_FOUND"
-            )
-
-        assignment_path = os.path.join(tnm_output_dir, 'AssignmentMatrix.json')
-        if not os.path.exists(assignment_path):
+        if not tnm_output_dir:
             return ApiResponse.error(
                 error_message="TNM analysis data not found. Please run TNM analysis first.",
                 error_code="TNM_DATA_NOT_FOUND",

@@ -4,6 +4,21 @@ import uuid
 from django.db import migrations, models
 
 
+def convert_id_to_uuid(apps, schema_editor):
+    if schema_editor.connection.vendor != 'postgresql':
+        return
+    schema_editor.execute(
+        "ALTER TABLE stc_analysis_stcanalysis DROP COLUMN id CASCADE;"
+    )
+    schema_editor.execute(
+        "ALTER TABLE stc_analysis_stcanalysis "
+        "ADD COLUMN id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY;"
+    )
+    schema_editor.execute(
+        "ALTER TABLE stc_analysis_stcanalysis ALTER COLUMN id DROP DEFAULT;"
+    )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -73,14 +88,9 @@ class Migration(migrations.Migration):
                 ),
             ],
             database_operations=[
-                migrations.RunSQL(
-                    sql="""
-                        ALTER TABLE stc_analysis_stcanalysis DROP COLUMN id CASCADE;
-                        ALTER TABLE stc_analysis_stcanalysis
-                            ADD COLUMN id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY;
-                        ALTER TABLE stc_analysis_stcanalysis ALTER COLUMN id DROP DEFAULT;
-                    """,
-                    reverse_sql=migrations.RunSQL.noop,
+                migrations.RunPython(
+                    convert_id_to_uuid,
+                    reverse_code=migrations.RunPython.noop,
                 ),
             ],
         ),
