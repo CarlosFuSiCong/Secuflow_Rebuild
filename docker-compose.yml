@@ -24,6 +24,11 @@ services:
     env_file: ./backend/.env
     environment:
       DATABASE_TYPE: postgresql
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: secuflow
+      POSTGRES_USER: secuflow
+      POSTGRES_PASSWORD: secuflow_dev
       TNM_JAR_PATH: /app/tnm-cli.jar
     ports:
       - "8000:8000"
