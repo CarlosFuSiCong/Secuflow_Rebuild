@@ -5,8 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthSidebar } from "@/components/auth/AuthSidebar";
 import { AuthHeader } from "@/components/auth/AuthHeader";
-import { Divider } from "@/components/common/Divider";
-import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 import { SubmitButton } from "@/components/common/SubmitButton";
 import { useSignInForm } from "@/lib/hooks/useAuthForms";
 
@@ -66,13 +64,6 @@ export default function SignInPage() {
               Sign in
             </SubmitButton>
           </form>
-
-          <Divider label="or sign in with" />
-
-          {/* Social login buttons */}
-          <div className="mt-6">
-            <SocialAuthButtons />
-          </div>
 
           {/* Sign up link */}
           <p className="text-muted-foreground text-center text-sm mt-6">

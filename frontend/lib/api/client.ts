@@ -42,8 +42,12 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Auth endpoints return 401 for invalid credentials — let the caller handle it
+    const isAuthEndpoint = originalRequest?.url?.includes("/auth/login/") ||
+      originalRequest?.url?.includes("/auth/register/");
+
     // If error is 401 and we haven't retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         // If already refreshing, add to queue
         return new Promise(function (resolve, reject) {
