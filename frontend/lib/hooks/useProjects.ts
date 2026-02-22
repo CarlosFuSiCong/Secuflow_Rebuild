@@ -124,6 +124,7 @@ export function useProjects() {
   // Load all projects for frontend search
   useEffect(() => {
     fetchAllProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only load once on mount
 
   const handleSearch = (query: string) => {

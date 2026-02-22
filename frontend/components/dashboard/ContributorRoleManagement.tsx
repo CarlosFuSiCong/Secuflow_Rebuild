@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -13,7 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Search, Save, RefreshCw, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   getProjectContributorsClassification,
@@ -73,6 +71,7 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
   // Load contributors when filters or pagination changes
   useEffect(() => {
     loadContributors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, search, roleFilter, currentPage, pageSize]);
 
   const loadContributors = async () => {
@@ -87,9 +86,10 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
       });
       setContributors(response.results);
       setTotalCount(response.count);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to load contributors:", err);
-      setError(err?.response?.data?.message || "Failed to load contributors");
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      setError(axiosErr?.response?.data?.message || "Failed to load contributors");
     } finally {
       setLoading(false);
     }
@@ -134,16 +134,17 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
       const result = await updateContributorClassifications(projectId, updates);
       toast.success(`Successfully updated ${result.updated_count} contributors`);
       setChanges(new Map());
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to save changes:", err);
-      const msg = err?.response?.data?.message || "Failed to save changes";
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      const msg = axiosErr?.response?.data?.message || "Failed to save changes";
       toast.error(msg);
     } finally {
       setSaving(false);
     }
   };
 
-  const getRoleBadgeVariant = (role: string) => {
+  const _getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case "developer":
         return "default";

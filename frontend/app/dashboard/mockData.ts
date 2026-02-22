@@ -221,7 +221,7 @@ export function getSTCTrendData(projectId: string, branchName: string): ChartDat
   }));
 }
 
-export function getCoordinationData(projectId: string, branchName: string) {
+export function getCoordinationData(_projectId: string, _branchName: string) {
   // Mock coordination data
   return [
     { x: "Alice & Bob", y: 0.8 },

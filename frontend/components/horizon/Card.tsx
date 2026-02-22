@@ -7,7 +7,7 @@ interface CardProps {
 }
 
 function Card(props: CardProps) {
-  const { variant, extra, children, default: isDefault, ...rest } = props;
+  const { variant: _variant, extra, children, default: _isDefault, ...rest } = props;
 
   return (
     <div

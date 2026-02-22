@@ -3,11 +3,9 @@ import { ProfileNavbar } from "@/components/profile/ProfileNavbar";
 import { Separator } from "@/components/ui/separator";
 import { AddProjectSection } from "@/components/project/AddProjectSection";
 import { ProjectsListSection } from "@/components/project/ProjectsListSection";
-import { useParams } from "next/navigation";
 import { useProjects } from "@/lib/hooks/useProjects";
 
 export default function ProjectsPage() {
-  const params = useParams();
   const projectsData = useProjects();
 
   const handleProjectAdded = () => {

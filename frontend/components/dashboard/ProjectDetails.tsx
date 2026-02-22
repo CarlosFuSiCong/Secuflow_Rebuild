@@ -16,22 +16,13 @@ import {
   LoadingState,
   ErrorState
 } from "./project-details";
-import { STCMatrix } from "./project-details/STCMatrix";
 import { AnalyticsHistory } from "./project-details/AnalyticsHistory";
 import { CoordinationPairsModal } from "./project-details/CoordinationPairsModal";
 import { ContributorRoleManagement } from "./ContributorRoleManagement";
-import type { ProjectMember } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { PlayCircle, Loader2, GitBranch, Users, BarChart3, CheckCircle2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 
 type AnalysisStep = "tnm" | "stc" | "classification" | "mcstc" | "complete";
@@ -61,7 +52,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [, setBranchesLoading] = useState(false);
   const [runningTNMAnalysis, setRunningTNMAnalysis] = useState(false);
   const [runningSTCAnalysis, setRunningSTCAnalysis] = useState(false);
   const [runningMCSTCAnalysis, setRunningMCSTCAnalysis] = useState(false);
@@ -76,7 +67,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [isSwitchingBranch, setIsSwitchingBranch] = useState(false);
 
-  const { allProjects } = useProjects();
+  useProjects();
 
   // Fetch project details
   useEffect(() => {

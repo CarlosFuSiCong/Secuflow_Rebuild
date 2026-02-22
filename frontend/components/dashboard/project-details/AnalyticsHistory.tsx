@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GitBranch, Calendar, TrendingUp, TrendingDown, Eye, RefreshCw, Activity, BarChart3 } from "lucide-react";
+import { GitBranch, Calendar, Eye, RefreshCw } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import type { ApiResponse } from "@/lib/types/response";
 
@@ -45,6 +45,7 @@ export function AnalyticsHistory({ projectId, onViewDetails }: AnalyticsHistoryP
 
   useEffect(() => {
     fetchAnalyses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   const fetchAnalyses = async () => {

@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ProjectSearchBar } from "./ProjectSearchBar";
 import { ProjectTable } from "./ProjectTable";
 import { useProjects } from "@/lib/hooks/useProjects";
-import { enhanceProject, type EnhancedProject } from "@/lib/utils/project-helpers";
-import { getProjectBranches } from "@/lib/api/projects";
 
 const TEXT = {
   SECTION_TITLE: "My Projects",
@@ -21,44 +19,14 @@ export function ProjectsListSection({
   useProjectsData: ReturnType<typeof useProjects>;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [enhancedProjects, setEnhancedProjects] = useState<EnhancedProject[]>([]);
-  const [loadingBranches, setLoadingBranches] = useState(false);
 
   const {
-    allProjects,
     loading,
     error,
     allProjectsLoading,
     searchProjectsLocally,
     handleSearch,
   } = useProjectsData;
-
-  // Enhance projects with branch count and calculated fields
-  useEffect(() => {
-    const enhanceProjectsWithBranches = async () => {
-      if (!allProjects || allProjects.length === 0) {
-        setEnhancedProjects([]);
-        return;
-      }
-
-      setLoadingBranches(true);
-      const enhanced = await Promise.all(
-        allProjects.map(async (project) => {
-          try {
-            const branchesData = await getProjectBranches(project.id);
-            return enhanceProject(project, branchesData.branches.length);
-          } catch {
-            // If branches fetch fails, still enhance with available data
-            return enhanceProject(project);
-          }
-        })
-      );
-      setEnhancedProjects(enhanced);
-      setLoadingBranches(false);
-    };
-
-    enhanceProjectsWithBranches();
-  }, [allProjects]);
 
   // Handle local search query - use debounce for better UX
   const handleLocalSearch = (query: string) => {
@@ -92,9 +60,9 @@ export function ProjectsListSection({
         onSearchChange={handleLocalSearch}
       />
 
-      {(loading || allProjectsLoading || loadingBranches) && (
+      {(loading || allProjectsLoading) && (
         <p className="text-center text-muted-foreground py-8">
-          {loadingBranches ? "Loading project details..." : TEXT.LOADING}
+          {TEXT.LOADING}
         </p>
       )}
 
@@ -113,9 +81,7 @@ export function ProjectsListSection({
           projects={currentPageProjects}
           currentPage={1}
           totalPages={totalPages}
-          onPageChange={(page) => {
-            // For now, just scroll to top or handle pagination differently
-            // Since we're showing filtered results, pagination might need adjustment
+          onPageChange={(_page) => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />

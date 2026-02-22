@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { ProfileNavbar } from "@/components/profile/ProfileNavbar";
 import { ProjectList } from "@/components/dashboard/ProjectList";
 import { ProjectDetails } from "@/components/dashboard/ProjectDetails";
@@ -9,7 +9,6 @@ import { DASHBOARD_TEXT } from "@/app/dashboard/constants";
 
 export default function UserDashboardPage() {
   const params = useParams<{ username: string }>();
-  const router = useRouter();
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>();
 
   const handleProjectSelect = (projectId: string) => {

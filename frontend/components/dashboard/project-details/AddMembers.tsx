@@ -47,6 +47,7 @@ export function AddMembers({ projectId, existingMembers = [], onMemberAdded }: A
     }, 300);
 
     return () => clearTimeout(delayDebounce);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   const handleSearchUsers = async () => {
@@ -191,7 +192,7 @@ export function AddMembers({ projectId, existingMembers = [], onMemberAdded }: A
                 })
               ) : hasSearched ? (
                 <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                  No users found for "{searchQuery}"
+                  No users found for &ldquo;{searchQuery}&rdquo;
                 </div>
               ) : null}
             </div>

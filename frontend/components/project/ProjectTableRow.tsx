@@ -42,8 +42,6 @@ export function ProjectTableRow({ project }: ProjectTableRowProps) {
   const hasBasicAnalysis = !!project.last_risk_check_at;
   const tnmComplete = !!project.repository_path;  // TNM完成 = 仓库已克隆
 
-  // Contributors can be managed when TNM is complete
-  const canManageContributors = tnmComplete;
 
   const handleRowClick = () => {
     router.push(`/dashboard?projectId=${project.id}`);

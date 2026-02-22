@@ -15,7 +15,6 @@ import {
 import { 
   Users, 
   TrendingUp, 
-  TrendingDown, 
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -73,6 +72,7 @@ export function CoordinationPairsModal({
         fetchMCSTCData();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, activeTab, stcId, mcstcId, statusFilter, topN]);
 
   const fetchSTCResult = async () => {

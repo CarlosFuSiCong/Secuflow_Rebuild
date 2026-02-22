@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, ArrowRight, Info, Circle, CheckCircle2 } from "lucide-react";
+import { Loader2, ArrowRight, Info, CheckCircle2 } from "lucide-react";
 import type { Branch } from "@/lib/types/project";
 import type { AnalysisOptions } from "@/lib/hooks/useAddProject";
 

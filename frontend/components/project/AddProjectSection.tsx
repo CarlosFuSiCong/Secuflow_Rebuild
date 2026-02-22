@@ -46,7 +46,7 @@ export function AddProjectSection({ onProjectAdded }: { onProjectAdded?: () => v
   const isCompleted = currentStep === 'completed';
 
   const handleCreateProject = async (config: ProjectConfigData) => {
-    const success = await handleCreate(config.name, config.description, config.branch);
+    await handleCreate(config.name, config.description, config.branch);
     // onProjectAdded is now called automatically in handleCreate
   };
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Card from "@/components/horizon/Card";
 import { DASHBOARD_TEXT } from "@/app/dashboard/constants";
-import type { BranchSelectorProps, DashboardBranch } from "@/lib/types";
+import type { BranchSelectorProps } from "@/lib/types";
 
 export function BranchSelector({
   branches,

@@ -32,7 +32,7 @@ export function AuthSidebar({ className, theme = "inverse" }: AuthSidebarProps) 
             <AvatarFallback>{AVATAR_FALLBACK}</AvatarFallback>
           </Avatar>
           <p className="mb-6 text-lg opacity-90">
-            "{TESTIMONIAL_TEXT}"
+            &ldquo;{TESTIMONIAL_TEXT}&rdquo;
           </p>
         </div>
         <div>

@@ -14,8 +14,8 @@ export default function Home() {
       setLoading(true);
       const res = await apiClient.get("/health/");
       setMessage(typeof res.data === "string" ? res.data : JSON.stringify(res.data));
-    } catch (e: any) {
-      setMessage(e?.message ?? "Failed to fetch");
+    } catch (e: unknown) {
+      setMessage(e instanceof Error ? e.message : "Failed to fetch");
     } finally {
       setLoading(false);
     }
