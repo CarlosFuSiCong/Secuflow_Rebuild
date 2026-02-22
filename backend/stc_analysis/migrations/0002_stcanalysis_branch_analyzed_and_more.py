@@ -56,9 +56,4 @@ class Migration(migrations.Migration):
             name='unnecessary_coordination_count',
             field=models.IntegerField(default=0, help_text='Number of unnecessary coordination activities'),
         ),
-        migrations.AlterField(
-            model_name='stcanalysis',
-            name='id',
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
-        ),
     ]
