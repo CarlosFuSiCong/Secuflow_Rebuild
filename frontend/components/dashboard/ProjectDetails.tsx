@@ -24,6 +24,7 @@ import type { ProjectMember } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { PlayCircle, Loader2, GitBranch, Users, BarChart3, CheckCircle2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -43,12 +44,12 @@ type AnalysisStep = "tnm" | "stc" | "classification" | "mcstc" | "complete";
 function getTnmOutputDir(repositoryPath: string | undefined): string | null {
   if (!repositoryPath) return null;
   
-  // Extract project_id from repository path
-  const match = repositoryPath.match(/project_(\d+)/);
+  // Extract the full project directory name (e.g. "project_<uuid>") from the
+  // repository path – the project id may be a UUID, not a plain integer.
+  const match = repositoryPath.match(/project_([^/]+?)\/?$/);
   if (!match) return null;
   
   const projectId = match[1];
-  // Construct TNM output directory path
   return `/app/tnm_output/project_${projectId}`;
 }
 
@@ -184,10 +185,14 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
     setAnalysisMessage(null);
     try {
       // Backend endpoint not yet implemented
-      setAnalysisMessage("TNM re-run functionality is not yet available. Please contact support.");
+      const msg = "TNM re-run functionality is not yet available. Please contact support.";
+      setAnalysisMessage(msg);
+      toast.warning(msg);
     } catch (err: any) {
       console.error("Failed to trigger TNM analysis:", err);
-      setAnalysisMessage(err?.response?.data?.message || "Failed to start TNM analysis");
+      const msg = err?.response?.data?.message || "Failed to start TNM analysis";
+      setAnalysisMessage(msg);
+      toast.error(msg);
     } finally {
       setRunningTNMAnalysis(false);
     }
@@ -199,6 +204,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
     setIsSwitchingBranch(true);
     setAnalysisMessage(`Switching to branch ${newBranch}...`);
     setCurrentStep("tnm");
+    toast.info(`Switching to branch: ${newBranch}`);
     
     try {
       // Find the branch data for the selected branch
@@ -247,6 +253,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
         // If TNM is already complete, don't start polling
         if (initialProject.repository_path) {
           setAnalysisMessage(`Branch switched and TNM analysis already completed for ${newBranch}!`);
+          toast.success(`Switched to branch: ${newBranch}`);
           setCurrentStep("stc");
           setRunningTNMAnalysis(false);
           setIsSwitchingBranch(false);
@@ -275,6 +282,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
               pollIntervalRef.current = null;
             }
             setAnalysisMessage(`Branch switched and TNM analysis completed for ${newBranch}!`);
+            toast.success(`Switched to branch: ${newBranch}`);
             setCurrentStep("stc");
             setRunningTNMAnalysis(false);
             setIsSwitchingBranch(false);
@@ -283,7 +291,9 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
               clearInterval(pollIntervalRef.current);
               pollIntervalRef.current = null;
             }
-            setAnalysisMessage('TNM analysis is taking longer than expected. Please refresh the page to check status.');
+            const timeoutMsg = 'TNM analysis is taking longer than expected. Please refresh the page to check status.';
+            setAnalysisMessage(timeoutMsg);
+            toast.warning(timeoutMsg);
             setRunningTNMAnalysis(false);
             setIsSwitchingBranch(false);
           }
@@ -294,7 +304,9 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
             clearInterval(pollIntervalRef.current);
             pollIntervalRef.current = null;
           }
-          setAnalysisMessage('Error checking analysis status. Please refresh the page.');
+          const pollErrorMsg = 'Error checking analysis status. Please refresh the page.';
+          setAnalysisMessage(pollErrorMsg);
+          toast.error(pollErrorMsg);
           setRunningTNMAnalysis(false);
           setIsSwitchingBranch(false);
         }
@@ -307,6 +319,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
         || err.message 
         || "Failed to switch branch";
       setAnalysisMessage(errorMessage);
+      toast.error(errorMessage);
       setRunningTNMAnalysis(false);
       setIsSwitchingBranch(false);
     }
@@ -326,14 +339,18 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
     try {
       await triggerSTCAnalysis(projectId, selectedBranch, tnmOutputDir);
       setAnalysisMessage("STC analysis started successfully!");
+      toast.info("STC analysis started...");
       setTimeout(async () => {
         const updatedProject = await getProject(projectId);
         setProject(updatedProject);
         setCurrentStep("classification");
+        toast.success("STC analysis complete!");
       }, 3000);
     } catch (err: any) {
       console.error("Failed to trigger STC analysis:", err);
-      setAnalysisMessage(err?.response?.data?.message || "Failed to start STC analysis");
+      const msg = err?.response?.data?.message || "Failed to start STC analysis";
+      setAnalysisMessage(msg);
+      toast.error(msg);
     } finally {
       setRunningSTCAnalysis(false);
     }
@@ -353,14 +370,18 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
     try {
       await triggerMCSTCAnalysis(projectId, selectedBranch, tnmOutputDir);
       setAnalysisMessage("MC-STC analysis started successfully!");
+      toast.info("MC-STC analysis started...");
       setTimeout(async () => {
         const updatedProject = await getProject(projectId);
         setProject(updatedProject);
         setCurrentStep("complete");
+        toast.success("MC-STC analysis complete!");
       }, 3000);
     } catch (err: any) {
       console.error("Failed to trigger MC-STC analysis:", err);
-      setAnalysisMessage(err?.response?.data?.message || "Failed to start MC-STC analysis");
+      const msg = err?.response?.data?.message || "Failed to start MC-STC analysis";
+      setAnalysisMessage(msg);
+      toast.error(msg);
     } finally {
       setRunningMCSTCAnalysis(false);
     }

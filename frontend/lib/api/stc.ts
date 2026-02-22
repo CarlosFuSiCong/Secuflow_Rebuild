@@ -58,12 +58,18 @@ export async function triggerSTCAnalysis(
   branch: string,
   tnmOutputDir: string
 ): Promise<{ analysis_id: string }> {
-  const response = await apiClient.post(`/stc/analyses/`, {
+  // Step 1: create the analysis record
+  const createResp = await apiClient.post(`/stc/analyses/`, {
     project: projectId,
-    branch,
-    tnm_output_dir: tnmOutputDir
   });
-  return response.data.data;
+  const analysisId: string = createResp.data.data.id;
+
+  // Step 2: run the calculation
+  const startResp = await apiClient.post(`/stc/analyses/${analysisId}/start_analysis/`, {
+    branch,
+    tnm_output_dir: tnmOutputDir,
+  });
+  return { analysis_id: analysisId, ...startResp.data.data };
 }
 
 export async function triggerMCSTCAnalysis(
@@ -71,12 +77,18 @@ export async function triggerMCSTCAnalysis(
   branch: string,
   tnmOutputDir: string
 ): Promise<{ analysis_id: string }> {
-  const response = await apiClient.post(`/mcstc/analyses/`, {
+  // Step 1: create the MC-STC analysis record
+  const createResp = await apiClient.post(`/mcstc/analyses/`, {
     project: projectId,
+    monte_carlo_iterations: 1000,
+    functional_roles_used: ['developer', 'security', 'ops'],
+  });
+  const analysisId: string = createResp.data.data.id;
+
+  // Step 2: run the calculation
+  const startResp = await apiClient.post(`/mcstc/analyses/${analysisId}/start_analysis/`, {
     branch,
     tnm_output_dir: tnmOutputDir,
-    monte_carlo_iterations: 1000,
-    functional_roles_used: ['developer', 'security', 'ops']
   });
-  return response.data.data;
+  return { analysis_id: analysisId, ...startResp.data.data };
 }
