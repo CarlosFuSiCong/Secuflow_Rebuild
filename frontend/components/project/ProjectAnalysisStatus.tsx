@@ -8,7 +8,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Loader2, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
-import { useProjectAnalysisStatus } from "@/hooks/useProjectAnalysisStatus";
+import { useProjectAnalysisStatus } from "@/lib/hooks/useProjectAnalysisStatus";
 import { AnalysisStepMini } from "./AnalysisStepMini";
 import { useState } from "react";
 
