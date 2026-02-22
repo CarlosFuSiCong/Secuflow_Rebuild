@@ -85,6 +85,8 @@ Secuflow_API_Collection.json
 # TNM Analysis Data
 backend/tnm_output/
 backend/tnm_repositories/
+backend/backend/
+backend/result/
 
 # Binary artifacts
 backend/tnm-cli.jar
