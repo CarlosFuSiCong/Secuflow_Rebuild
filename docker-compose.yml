@@ -1,122 +1,40 @@
 services:
-  # MySQL Database
-  mysql:
-    image: mysql:8.0
-    container_name: secuflow-mysql
+  db:
+    image: postgres:16-alpine
+    container_name: secuflow_db
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-secuflow}
-      MYSQL_USER: ${MYSQL_USER:-secuflow}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-secuflow123}
+      POSTGRES_DB: secuflow
+      POSTGRES_USER: secuflow
+      POSTGRES_PASSWORD: secuflow_dev
     ports:
-      - "3307:3306"
+      - "5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    networks:
-      - secuflow-network
-    restart: unless-stopped
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 20s
-      retries: 10
+      test: ["CMD-SHELL", "pg_isready -U secuflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Redis Cache
-  redis:
-    image: redis:7-alpine
-    container_name: secuflow-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - secuflow-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      timeout: 20s
-      retries: 10
-
-  # Django Backend
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: secuflow-backend
+    build: ./backend
+    container_name: secuflow_backend
+    restart: unless-stopped
+    env_file: ./backend/.env
     environment:
-      - DATABASE_TYPE=mysql
-      - MYSQL_HOST=mysql
-      - MYSQL_PORT=3306
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-secuflow}
-      - MYSQL_USER=${MYSQL_USER:-secuflow}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-secuflow123}
-      - SECRET_KEY=${SECRET_KEY:-django-insecure-change-me}
-      - DEBUG=${DEBUG:-True}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
-      # TNM Docker Configuration
-      - TNM_CONTAINER_NAME=secuflow-tnm
-      - TNM_DOCKER_MODE=false
-      - TNM_OUTPUT_DIR=/app/tnm_output
-      - TNM_REPOSITORIES_DIR=/app/tnm_repositories
-      - TNM_JAR_PATH=/app/tnm-cli.jar
-      - TNM_TIMEOUT=1800
-      - TNM_STREAM_LOG=true
+      TNM_JAR_PATH: /app/tnm-cli.jar
     ports:
       - "8000:8000"
-    volumes:
-      # Mount source code for development, not for production
-      - ${BACKEND_VOLUME:-./backend:/app}
-      # TNM Data Sharing
-      - ./backend/tnm_output:/app/tnm_output
-      - ./backend/tnm_repositories:/app/tnm_repositories
-      # Mount TNM CLI jar for direct execution (no docker inside backend)
-      - ./tnm/cli/build/libs/shadow-all.jar:/app/tnm-cli.jar:ro
-      # SSH key for private repos (optional)
-      - ${SSH_PRIVATE_KEY:-./.ssh/id_ed25519}:/home/django/.ssh/id_rsa:ro
-    networks:
-      - secuflow-network
     depends_on:
-      mysql:
+      db:
         condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "manage.py", "check", "--deploy"]
-      timeout: 30s
-      retries: 3
-      interval: 30s
-
-  # TNM Analysis Service
-  tnm:
-    build:
-      context: .
-      dockerfile: docker/tnm.Dockerfile
-    container_name: secuflow-tnm
-    command: ["tail", "-f", "/dev/null"]
-    environment:
-      - JAVA_OPTS=${JAVA_OPTS:--Xmx2g -Xms512m}
-      - TNM_JAR_PATH=/app/tnm-cli.jar
-      - TNM_WORK_DIR=/data
     volumes:
-      - tnm_data:/data
-      - ./backend/tnm_repositories:/data/repositories
-      - ./backend/tnm_output:/data/output
-      - ./backend/tnm_config.json:/data/config.json:ro
-    networks:
-      - secuflow-network
-    working_dir: /data
-    restart: unless-stopped
-
-
+      - ./backend:/app
+      - static_files:/app/staticfiles
+      - media_files:/app/media
 
 volumes:
-  mysql_data:
-    driver: local
-  redis_data:
-    driver: local
-  tnm_data:
-    driver: local
-
-networks:
-  secuflow-network:
-    driver: bridge
+  postgres_data:
+  static_files:
+  media_files:

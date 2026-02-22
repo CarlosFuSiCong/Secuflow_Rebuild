@@ -109,6 +109,20 @@ if DATABASE_TYPE == 'mysql':
             },
         }
     }
+elif DATABASE_TYPE == 'postgresql':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('POSTGRES_DB', default='secuflow'),
+            'USER': config('POSTGRES_USER', default='secuflow'),
+            'PASSWORD': config('POSTGRES_PASSWORD', default='secuflow_dev'),
+            'HOST': config('POSTGRES_HOST', default='localhost'),
+            'PORT': config('POSTGRES_PORT', default='5432'),
+            'OPTIONS': {
+                'connect_timeout': 10,
+            },
+        }
+    }
 else:
     # 默认使用SQLite
     DATABASES = {
