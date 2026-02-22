@@ -56,4 +56,32 @@ class Migration(migrations.Migration):
             name='unnecessary_coordination_count',
             field=models.IntegerField(default=0, help_text='Number of unnecessary coordination activities'),
         ),
+        # PostgreSQL cannot cast bigint to uuid directly via ALTER COLUMN.
+        # SeparateDatabaseAndState lets Django's state tracker record the UUID
+        # field type (state_operations) while the database side drops and
+        # recreates the column using compatible SQL (database_operations).
+        # This is safe because the table has no data at this point in the
+        # migration chain (created in 0001, nothing inserts before 0002 runs).
+        # Databases that already have both 0001 and 0002 applied will skip this
+        # entirely because Django sees the migration as already complete.
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AlterField(
+                    model_name='stcanalysis',
+                    name='id',
+                    field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
+                ),
+            ],
+            database_operations=[
+                migrations.RunSQL(
+                    sql="""
+                        ALTER TABLE stc_analysis_stcanalysis DROP COLUMN id CASCADE;
+                        ALTER TABLE stc_analysis_stcanalysis
+                            ADD COLUMN id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY;
+                        ALTER TABLE stc_analysis_stcanalysis ALTER COLUMN id DROP DEFAULT;
+                    """,
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+            ],
+        ),
     ]
