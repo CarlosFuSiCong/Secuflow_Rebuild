@@ -417,7 +417,7 @@ def analyze_tnm_contributors(request, project_id):
                 f"{repos_root}/project_{project_id_str}_{branch_fs}",
             ]
             for candidate in candidates:
-                if os.path.exists(os.path.join(candidate, 'idToUser.json')):
+                if os.path.exists(os.path.join(candidate, 'AssignmentMatrix.json')):
                     tnm_output_dir = candidate
                     break
             if not tnm_output_dir:

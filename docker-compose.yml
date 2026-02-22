@@ -23,6 +23,7 @@ services:
     restart: unless-stopped
     env_file: ./backend/.env
     environment:
+      DATABASE_TYPE: postgresql
       TNM_JAR_PATH: /app/tnm-cli.jar
     ports:
       - "8000:8000"
