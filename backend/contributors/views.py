@@ -407,11 +407,22 @@ def analyze_tnm_contributors(request, project_id):
         if not branch:
             branch = project.default_branch or 'main'
         
-        # Auto-detect TNM output directory if not provided
+        # Auto-detect TNM output directory if not provided, trying multiple candidate paths
         if not tnm_output_dir:
             repos_root = getattr(settings, 'TNM_OUTPUT_DIR', '/app/tnm_output')
-            tnm_output_dir = f"{repos_root}/project_{project.id}_{branch.replace('/', '_')}"
-        
+            project_id_str = str(project.id)
+            branch_fs = branch.replace('/', '_')
+            candidates = [
+                f"{repos_root}/project_{project_id_str}",
+                f"{repos_root}/project_{project_id_str}_{branch_fs}",
+            ]
+            for candidate in candidates:
+                if os.path.exists(os.path.join(candidate, 'idToUser.json')):
+                    tnm_output_dir = candidate
+                    break
+            if not tnm_output_dir:
+                tnm_output_dir = candidates[0]
+
         if not os.path.exists(tnm_output_dir):
             return ApiResponse.error(
                 error_message=f"TNM output directory not found: {tnm_output_dir}",

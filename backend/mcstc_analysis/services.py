@@ -168,16 +168,45 @@ class MCSTCAnalysisService:
             MCSTCCoordinationPair.objects.filter(analysis=analysis).delete()
             
             # Get TNM output directory
-            if not tnm_output_dir:
-                repos_root = getattr(settings, 'TNM_OUTPUT_DIR', '/app/tnm_output')
-                tnm_output_dir = f"{repos_root}/project_{analysis.project.id}_{branch.replace('/', '_')}"
-            
+            repos_root = getattr(settings, 'TNM_OUTPUT_DIR', '/app/tnm_output')
+            branch_fs = branch.replace('/', '_')
+            project_id = str(analysis.project.id)
+
+            # Resolve the actual output directory by trying candidates in priority order:
+            # 1. Caller-supplied path (if any)
+            # 2. Path without branch suffix  (legacy / current TNM output layout)
+            # 3. Path with branch suffix
+            candidates = []
+            if tnm_output_dir:
+                candidates.append(tnm_output_dir)
+            candidates += [
+                f"{repos_root}/project_{project_id}",
+                f"{repos_root}/project_{project_id}_{branch_fs}",
+            ]
+
+            resolved_dir = None
+            for candidate in candidates:
+                if os.path.exists(os.path.join(candidate, 'AssignmentMatrix.json')):
+                    resolved_dir = candidate
+                    break
+
+            if not resolved_dir:
+                tried = ', '.join(candidates)
+                analysis.error_message = f"TNM output not found. Searched: {tried}"
+                analysis.save()
+                return {
+                    'success': False,
+                    'error': analysis.error_message
+                }
+
+            tnm_output_dir = resolved_dir
+
             # Check if TNM data exists
             assignment_path = os.path.join(tnm_output_dir, 'AssignmentMatrix.json')
             dependency_path = os.path.join(tnm_output_dir, 'FileDependencyMatrix.json')
             id_to_user_path = os.path.join(tnm_output_dir, 'idToUser.json')
             id_to_file_path = os.path.join(tnm_output_dir, 'idToFile.json')
-            
+
             required_files = [assignment_path, dependency_path, id_to_user_path]
             missing_files = [f for f in required_files if not os.path.exists(f)]
             
