@@ -1,6 +1,7 @@
 import json
 import os
 import numpy as np
+import scipy.sparse as sp
 import logging
 import threading
 from typing import Dict, List, Optional, Tuple, Set
@@ -20,27 +21,59 @@ class MCSTCAnalysisService:
     """Service for MC-STC analysis operations"""
     
     @staticmethod
+    def _dict_to_sparse(matrix_data, matrix_name):
+        """Convert a nested-dict TNM matrix to a scipy CSR sparse matrix.
+
+        Returns a scipy.sparse.csr_matrix. Use this for large file-level matrices
+        (e.g. FileDependencyMatrix) to avoid materialising a huge dense array.
+        """
+        if not matrix_data:
+            raise ValueError(f"{matrix_name} matrix data is empty")
+
+        max_row = max(int(k) for k in matrix_data.keys())
+        max_col = 0
+        for row_data in matrix_data.values():
+            if not isinstance(row_data, dict):
+                raise ValueError(f"{matrix_name} matrix has invalid row format: {type(row_data)}")
+            if row_data:
+                max_col = max(max_col, max(int(k) for k in row_data.keys()))
+
+        rows, cols, vals = [], [], []
+        for row_idx, row_data in matrix_data.items():
+            ri = int(row_idx)
+            for col_idx, value in row_data.items():
+                rows.append(ri)
+                cols.append(int(col_idx))
+                vals.append(float(value))
+
+        size = (max_row + 1, max_col + 1)
+        return sp.csr_matrix((vals, (rows, cols)), shape=size, dtype=float)
+
+    @staticmethod
     def _convert_tnm_matrix_to_numpy(matrix_data, matrix_name):
-        """Convert TNM matrix format to numpy array
-        
+        """Convert TNM matrix format to numpy array.
+
         TNM outputs matrices in different formats:
         1. Nested dict format: {"0": {"0": value, "1": value}, "1": {...}}
         2. List of lists format: [[value, value], [value, value]]
         3. Dense array format: [value, value, value, ...]
-        
-        Args:
-            matrix_data: Matrix data from TNM JSON file
-            matrix_name: Name of the matrix for error messages
-            
+
+        For large dict-format matrices (>1 000 rows) a scipy CSR matrix is
+        returned instead so that subsequent multiplications stay memory-efficient.
+        Call _dict_to_sparse() directly when you know the matrix will be large.
+
         Returns:
-            numpy.ndarray: 2D numpy array
+            numpy.ndarray or scipy.sparse.csr_matrix
         """
         if matrix_data is None:
             raise ValueError(f"{matrix_name} matrix data is None")
-        
-        # Case 1: Nested dictionary format (sparse matrix)
+
+        # Case 1: Nested dictionary format
         if isinstance(matrix_data, dict):
-            # Find matrix dimensions
+            # Use sparse representation for large matrices to avoid OOM
+            if len(matrix_data) > 1000:
+                return MCSTCAnalysisService._dict_to_sparse(matrix_data, matrix_name)
+
             max_row = max(int(k) for k in matrix_data.keys()) if matrix_data else 0
             max_col = 0
             for row_data in matrix_data.values():
@@ -49,93 +82,84 @@ class MCSTCAnalysisService:
                         max_col = max(max_col, max(int(k) for k in row_data.keys()))
                 else:
                     raise ValueError(f"{matrix_name} matrix has invalid row format: {type(row_data)}")
-            
-            # Create dense matrix
+
             rows, cols = max_row + 1, max_col + 1
             dense_matrix = np.zeros((rows, cols), dtype=float)
-            
             for row_idx, row_data in matrix_data.items():
                 row_i = int(row_idx)
                 for col_idx, value in row_data.items():
-                    col_j = int(col_idx)
-                    dense_matrix[row_i, col_j] = float(value)
-            
+                    dense_matrix[row_i, col_j := int(col_idx)] = float(value)
             return dense_matrix
-        
+
         # Case 2: List of lists format
         elif isinstance(matrix_data, list):
             if not matrix_data:
                 raise ValueError(f"{matrix_name} matrix is empty list")
-            
-            # Check if it's a list of lists (2D)
             if isinstance(matrix_data[0], list):
                 return np.array(matrix_data, dtype=float)
-            
-            # Check if it's a flat list that needs reshaping
-            else:
-                # This case would need additional dimension information
-                # For now, assume it's a square matrix
-                size = int(np.sqrt(len(matrix_data)))
-                if size * size != len(matrix_data):
-                    raise ValueError(f"{matrix_name} matrix flat list length {len(matrix_data)} is not a perfect square")
-                return np.array(matrix_data, dtype=float).reshape(size, size)
-        
+            size = int(np.sqrt(len(matrix_data)))
+            if size * size != len(matrix_data):
+                raise ValueError(f"{matrix_name} matrix flat list length {len(matrix_data)} is not a perfect square")
+            return np.array(matrix_data, dtype=float).reshape(size, size)
+
         else:
             raise ValueError(f"{matrix_name} matrix has unsupported format: {type(matrix_data)}")
     
     @staticmethod
     def _align_matrix_dimensions(assignment_matrix, dependency_matrix, assign_name, dep_name):
-        """Align matrix dimensions for compatibility
-        
-        TNM may output matrices with slightly different dimensions due to:
-        - Different file indexing ranges
-        - Missing files in one matrix but not the other
-        
-        Args:
-            assignment_matrix: numpy array (users × files)
-            dependency_matrix: numpy array (files × files)
-            assign_name: Name for error messages
-            dep_name: Name for error messages
-            
-        Returns:
-            Tuple of aligned matrices (assignment, dependency)
+        """Align matrix dimensions for compatibility.
+
+        Works with both numpy dense arrays and scipy sparse matrices.
+        Returns (assignment_matrix, dependency_matrix) with compatible dimensions.
         """
+        is_sparse = sp.issparse(dependency_matrix)
+
         assign_rows, assign_cols = assignment_matrix.shape
         dep_rows, dep_cols = dependency_matrix.shape
-        
-        logger.info(f"Matrix alignment needed: {assign_name} {assignment_matrix.shape}, {dep_name} {dependency_matrix.shape}")
-        
-        # The number of files should match: assignment columns = dependency rows
+
+        logger.info(f"Matrix alignment needed: {assign_name} {assignment_matrix.shape}, "
+                    f"{dep_name} {dependency_matrix.shape} (sparse={is_sparse})")
+
         max_files = max(assign_cols, dep_rows)
-        min_files = min(assign_cols, dep_rows)
-        
-        # If dimensions are close (within 5), try to align them
+
         if abs(assign_cols - dep_rows) <= 5:
-            # Pad the smaller matrix with zeros
             if assign_cols < max_files:
-                # Pad assignment matrix columns
                 padding = max_files - assign_cols
                 assignment_matrix = np.pad(assignment_matrix, ((0, 0), (0, padding)), mode='constant', constant_values=0)
                 logger.info(f"Padded {assign_name} matrix columns: {assignment_matrix.shape}")
-            
+
             if dep_rows < max_files:
-                # Pad dependency matrix rows
                 padding = max_files - dep_rows
-                dependency_matrix = np.pad(dependency_matrix, ((0, padding), (0, 0)), mode='constant', constant_values=0)
+                if is_sparse:
+                    dependency_matrix = sp.vstack([
+                        dependency_matrix,
+                        sp.csr_matrix((padding, dep_cols), dtype=float)
+                    ])
+                else:
+                    dependency_matrix = np.pad(dependency_matrix, ((0, padding), (0, 0)), mode='constant', constant_values=0)
+                dep_rows = dependency_matrix.shape[0]
                 logger.info(f"Padded {dep_name} matrix rows: {dependency_matrix.shape}")
-            
-            # Also align dependency matrix columns to match rows (square matrix)
+
             if dependency_matrix.shape[0] != dependency_matrix.shape[1]:
                 dep_size = dependency_matrix.shape[0]
                 if dependency_matrix.shape[1] < dep_size:
                     padding = dep_size - dependency_matrix.shape[1]
-                    dependency_matrix = np.pad(dependency_matrix, ((0, 0), (0, padding)), mode='constant', constant_values=0)
+                    if is_sparse:
+                        dependency_matrix = sp.hstack([
+                            dependency_matrix,
+                            sp.csr_matrix((dep_size, padding), dtype=float)
+                        ])
+                    else:
+                        dependency_matrix = np.pad(dependency_matrix, ((0, 0), (0, padding)), mode='constant', constant_values=0)
                 elif dependency_matrix.shape[1] > dep_size:
-                    dependency_matrix = dependency_matrix[:, :dep_size]
+                    if is_sparse:
+                        dependency_matrix = dependency_matrix[:, :dep_size]
+                    else:
+                        dependency_matrix = dependency_matrix[:, :dep_size]
                 logger.info(f"Aligned {dep_name} matrix to square: {dependency_matrix.shape}")
-            
+
             return assignment_matrix, dependency_matrix
-        
+
         else:
             raise ValueError(
                 f"Matrix dimensions too different to align: "
@@ -253,26 +277,29 @@ class MCSTCAnalysisService:
             # Perform MC-STC calculation
             service = BaseMCSTCService(project_id=str(analysis.project.id))
             
-            # Convert matrices to numpy arrays with error handling
+            # Convert matrices to numpy/sparse with error handling
             try:
-                # Handle different matrix formats from TNM
                 assignment_np = MCSTCAnalysisService._convert_tnm_matrix_to_numpy(assignment_matrix, "Assignment")
                 dependency_np = MCSTCAnalysisService._convert_tnm_matrix_to_numpy(dependency_matrix, "Dependency")
-                
-                # Validate matrix dimensions
-                if assignment_np.ndim != 2:
-                    raise ValueError(f"Assignment matrix must be 2D, got {assignment_np.ndim}D")
-                if dependency_np.ndim != 2:
-                    raise ValueError(f"Dependency matrix must be 2D, got {dependency_np.ndim}D")
-                
+
+                # Validate matrix is 2-dimensional (works for both dense and sparse)
+                if len(assignment_np.shape) != 2:
+                    raise ValueError(f"Assignment matrix must be 2D, got shape {assignment_np.shape}")
+                if len(dependency_np.shape) != 2:
+                    raise ValueError(f"Dependency matrix must be 2D, got shape {dependency_np.shape}")
+
+                logger.info(
+                    f"Loaded matrices — Assignment: {assignment_np.shape} dense, "
+                    f"Dependency: {dependency_np.shape} {'sparse' if sp.issparse(dependency_np) else 'dense'}"
+                )
+
                 # Ensure matrices are compatible - align dimensions if needed
                 needs_alignment = (
                     assignment_np.shape[1] != dependency_np.shape[0] or  # Column-row mismatch
                     dependency_np.shape[0] != dependency_np.shape[1]     # Dependency not square
                 )
-                
+
                 if needs_alignment:
-                    # Try to align matrix dimensions
                     assignment_np, dependency_np = MCSTCAnalysisService._align_matrix_dimensions(
                         assignment_np, dependency_np, "Assignment", "Dependency"
                     )

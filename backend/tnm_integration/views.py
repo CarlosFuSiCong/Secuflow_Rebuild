@@ -249,12 +249,27 @@ def run_tnm(request):
 					'data_type': cmd.replace('Miner', '').lower()
 				})
 			_copy_outputs()
-			ok = all(r['returncode'] == 0 for r in results)
+			
+			# Check both return codes and file existence for validation
+			all_success = all(r['returncode'] == 0 for r in results)
+			required_files = ['AssignmentMatrix.json', 'FileDependencyMatrix.json']
+			files_exist = all(os.path.exists(os.path.join(project_output_root, f)) for f in required_files)
+			
+			# Consider it successful if either all commands succeeded OR all required files exist
+			ok = all_success or files_exist
+			
 			return ApiResponse.success({
 				'data_type': data_type,
 				'runs': results,
-				'essential_data_extracted': ok
-			}) if ok else ApiResponse.error('Essential data extraction failed', data={'runs': results})
+				'essential_data_extracted': ok,
+				'validation': {
+					'all_commands_succeeded': all_success,
+					'required_files_exist': files_exist
+				}
+			}) if ok else ApiResponse.error('Essential data extraction failed', data={
+				'runs': results,
+				'missing_files': [f for f in required_files if not os.path.exists(os.path.join(project_output_root, f))]
+			})
 
 		# Single data type extraction path
 		if command:

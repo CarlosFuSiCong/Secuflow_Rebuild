@@ -16,6 +16,10 @@ class TnmService:
 		self.run_script = run_script
 		self.logger = logging.getLogger(__name__)
 		
+		# JVM heap options: support env var TNM_JAVA_OPTS (e.g. "-Xmx2g -Xms256m")
+		java_opts_str = os.getenv('TNM_JAVA_OPTS', '-Xmx2g')
+		self._java_opts: list = shlex.split(java_opts_str) if java_opts_str.strip() else []
+
 		# Docker exec mode support (prefer env when run_script not explicitly provided)
 		docker_mode = os.getenv('TNM_DOCKER_MODE', 'false').lower() == 'true'
 		self._docker_exec_prefix: Optional[list] = None
@@ -24,8 +28,8 @@ class TnmService:
 			if shutil.which('docker'):
 				container = os.getenv('TNM_CONTAINER_NAME', 'secuflow-tnm')
 				jar_in_container = os.getenv('TNM_JAR_PATH', '/app/tnm-cli.jar')
-				# docker exec <container> java -jar /app/tnm-cli.jar <command> ...
-				self._docker_exec_prefix = ['docker', 'exec', container, self.java_path, '-jar', jar_in_container]
+				# docker exec <container> java [opts] -jar /app/tnm-cli.jar <command> ...
+				self._docker_exec_prefix = ['docker', 'exec', container, self.java_path] + self._java_opts + ['-jar', jar_in_container]
 			else:
 				self.logger.info('docker not found on PATH; falling back to direct java/jar mode')
 		
@@ -55,7 +59,7 @@ class TnmService:
 		else:
 			if not self.tnm_jar:
 				raise ValueError('TNM jar path must be provided if run_script is not set')
-			cmd = [self.java_path, '-jar', self.tnm_jar, command] + options + args
+			cmd = [self.java_path] + self._java_opts + ['-jar', self.tnm_jar, command] + options + args
 
 		# Note: when using docker exec, cwd is ignored by docker; paths should be absolute for the container
 		stream = os.getenv('TNM_STREAM_LOG', 'false').lower() == 'true'

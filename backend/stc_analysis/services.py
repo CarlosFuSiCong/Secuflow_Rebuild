@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse as sp
 from typing import Dict, List, Optional, Tuple, Set
 from stc_analysis.models import STCAnalysis
 
@@ -48,19 +49,25 @@ class STCService:
         Returns:
             CR matrix (m × m) representing coordination requirements
         """
-        # Calculate coordination requirement
-        cr_matrix = assignment_matrix @ dependency_matrix @ assignment_matrix.T
-        
+        # When dependency_matrix is sparse, keep intermediate products sparse
+        # to avoid materialising a huge (files × files) dense array in memory.
+        if sp.issparse(dependency_matrix):
+            # A_sp @ D_sp  →  (users × files)  [still sparse-friendly]
+            temp = assignment_matrix @ dependency_matrix   # dense × sparse = dense
+            cr_matrix = temp @ assignment_matrix.T         # (users × files) @ (files × users)
+        else:
+            cr_matrix = assignment_matrix @ dependency_matrix @ assignment_matrix.T
+
         # Apply threshold
         if self.threshold > 0:
             cr_matrix = np.where(cr_matrix > self.threshold, 1, 0)
         else:
             # Binary threshold: > 0 means coordination is required
             cr_matrix = np.where(cr_matrix > 0, 1, 0)
-        
+
         # Remove self-loops (diagonal)
         np.fill_diagonal(cr_matrix, 0)
-        
+
         return cr_matrix
     
     def calculate_ca_from_file_modifiers(
