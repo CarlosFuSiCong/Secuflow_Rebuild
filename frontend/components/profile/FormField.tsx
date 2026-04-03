@@ -25,8 +25,8 @@ export function FormField({
   onChange,
 }: FormFieldProps) {
   return (
-    <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+    <div className="space-y-1.5">
+      <Label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</Label>
       <Input
         id={id}
         type={type}

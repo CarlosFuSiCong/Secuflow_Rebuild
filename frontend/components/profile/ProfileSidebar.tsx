@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 
-// Sidebar menu items
-const SIDEBAR_ITEMS = {
-  BASIC_INFO: "Basic Information",
-  CHANGE_PASSWORD: "Change Password",
-};
+const NAV_ITEMS = [
+  { id: "basic-info", label: "Basic Information" },
+  { id: "change-password", label: "Change Password" },
+];
 
 export function ProfileSidebar() {
   const [activeSection, setActiveSection] = useState<string>("basic-info");
@@ -20,28 +19,25 @@ export function ProfileSidebar() {
   };
 
   return (
-    <aside className="border-border hidden w-64 border-r py-6 pr-6 md:block">
-      <ul className="-ml-3 space-y-1">
-        <li
-          className={`cursor-pointer rounded-md px-3 py-2 text-sm font-medium ${
-            activeSection === "basic-info"
-              ? "bg-accent-foreground/5 text-accent-foreground"
-              : "text-muted-foreground hover:bg-accent-foreground/10"
-          }`}
-          onClick={() => scrollToSection("basic-info")}
-        >
-          <a>{SIDEBAR_ITEMS.BASIC_INFO}</a>
-        </li>
-        <li
-          className={`cursor-pointer rounded-md px-3 py-2 text-sm font-medium ${
-            activeSection === "change-password"
-              ? "bg-accent-foreground/5 text-accent-foreground"
-              : "text-muted-foreground hover:bg-accent-foreground/10"
-          }`}
-          onClick={() => scrollToSection("change-password")}
-        >
-          <a>{SIDEBAR_ITEMS.CHANGE_PASSWORD}</a>
-        </li>
+    <aside className="hidden md:block w-48 py-8 shrink-0">
+      <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground mb-3 px-1">
+        Sections
+      </p>
+      <ul className="space-y-0.5">
+        {NAV_ITEMS.map((item) => (
+          <li key={item.id}>
+            <button
+              onClick={() => scrollToSection(item.id)}
+              className={`w-full text-left px-2 py-1.5 text-sm transition-colors ${
+                activeSection === item.id
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {item.label}
+            </button>
+          </li>
+        ))}
       </ul>
     </aside>
   );

@@ -6,6 +6,7 @@ import type { User } from "@/lib/types/user";
 import { FormField } from "./FormField";
 import { FormContainer } from "./FormContainer";
 import { useProfileForm } from "@/lib/hooks/useProfileForm";
+import { toast } from "sonner";
 
 // Text constants
 const TEXT = {
@@ -92,7 +93,7 @@ export function BasicInfoForm() {
       lastName === originalLastName &&
       contactEmail === originalContactEmail
     ) {
-      alert(TEXT.MESSAGE_NO_CHANGES);
+      toast.info(TEXT.MESSAGE_NO_CHANGES);
       return;
     }
 

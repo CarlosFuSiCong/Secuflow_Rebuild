@@ -1,6 +1,5 @@
 "use client";
 
-import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
@@ -94,7 +93,7 @@ export function ProfileNavbar() {
       <nav className="border-border bg-background hidden h-16 border-b md:block">
         <div className="container mx-auto flex h-full items-center justify-between px-6">
           <div className="flex items-center gap-x-6">
-            <Logo />
+            <span className="text-base font-semibold tracking-tight">Secuflow</span>
             <div className="flex items-center gap-x-1">
               <NavLinks />
             </div>
@@ -128,7 +127,7 @@ export function ProfileNavbar() {
             <X />
           </span>
         </Button>
-        <Logo className="absolute left-1/2 h-8 w-8 -translate-x-1/2" />
+        <span className="absolute left-1/2 -translate-x-1/2 text-base font-semibold tracking-tight">Secuflow</span>
       </nav>
 
       {/* Mobile menu panel */}
