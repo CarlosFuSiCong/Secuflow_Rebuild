@@ -36,6 +36,10 @@ urlpatterns = [
     path('api/', include('accounts.urls')),
     path('api/projects/', include('projects.urls')),
     path('api/tnm/', include('tnm_integration.urls')),
+    path('api/stc/', include('stc_analysis.urls')),
+    path('api/mcstc/', include('mcstc_analysis.urls')),
+    path('api/contributors/', include('contributors.urls')),
+    path('api/monitoring/', include('project_monitoring.urls')),
 ]
 
 # Serve media files in development environment
