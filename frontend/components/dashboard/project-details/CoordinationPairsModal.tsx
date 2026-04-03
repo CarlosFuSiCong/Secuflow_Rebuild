@@ -167,7 +167,7 @@ export function CoordinationPairsModal({
       <DialogContent className="max-w-4xl overflow-hidden p-0">
         {/* Scrollable inner wrapper keeps border-radius intact on both sides */}
         <div className="max-h-[90vh] overflow-y-auto p-6">
-        <DialogHeader>
+        <DialogHeader className="pr-8">
           <DialogTitle className="flex items-center gap-2 text-base font-semibold tracking-tight">
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
             Analysis Details
