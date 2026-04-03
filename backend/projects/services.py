@@ -868,49 +868,60 @@ class ProjectService:
     def get_project_branches(project):
         """
         Get all branches for a project's repository with caching.
-        
-        Args:
-            project: Project instance
-            
-        Returns:
-            Dictionary with branches information
+        Falls back to remote git ls-remote when the local repo has not been cloned yet.
         """
         try:
             import time
-            
+
             # Check cache first
             cache_key = f"branches_{project.id}"
             current_time = time.time()
-            
+
             if cache_key in ProjectService._branch_cache:
                 cached_data, cache_time = ProjectService._branch_cache[cache_key]
                 if current_time - cache_time < ProjectService._cache_timeout:
                     return cached_data
-            
+
             repositories_root = getattr(
                 settings, 'TNM_REPOSITORIES_DIR',
                 os.getenv('TNM_REPOSITORIES_DIR', '/app/tnm_repositories')
             )
             repo_dir = os.path.join(repositories_root, f"project_{project.id}")
-            
+
             if not os.path.exists(repo_dir):
-                raise ValidationError("Repository not found. Please clone the repository first.")
-            
+                # Repo not cloned yet — fetch branches remotely via git ls-remote
+                if not project.repo_url:
+                    raise ValidationError("Repository URL not set for this project.")
+                remote_info = GitUtils.validate_repository_access(project.repo_url)
+                remote_branches = remote_info.get('branches', [])
+                # Ensure each branch entry has a branch_id field the frontend expects
+                for b in remote_branches:
+                    if 'branch_id' not in b:
+                        b['branch_id'] = b.get('name', '')
+                result = {
+                    'success': True,
+                    'branches': remote_branches,
+                    'current_branch': remote_info.get('default_branch', 'main'),
+                    'repository_path': None,
+                }
+                ProjectService._branch_cache[cache_key] = (result, current_time)
+                return result
+
             branches = GitUtils.get_repository_branches(repo_dir)
             current_branch = GitUtils.get_current_branch(repo_dir)
-            
+
             result = {
                 'success': True,
                 'branches': branches,
                 'current_branch': current_branch,
                 'repository_path': repo_dir
             }
-            
+
             # Cache the result
             ProjectService._branch_cache[cache_key] = (result, current_time)
-            
+
             return result
-            
+
         except ValidationError:
             raise
         except Exception as e:
@@ -927,13 +938,7 @@ class ProjectService:
     def switch_project_branch(project, branch_name):
         """
         Switch to a different branch in the project's repository.
-        
-        Args:
-            project: Project instance
-            branch_name: Branch name to switch to
-            
-        Returns:
-            Dictionary with switch result
+        Clones the repository first if it has not been cloned locally yet.
         """
         try:
             repositories_root = getattr(
@@ -941,17 +946,31 @@ class ProjectService:
                 os.getenv('TNM_REPOSITORIES_DIR', '/app/tnm_repositories')
             )
             repo_dir = os.path.join(repositories_root, f"project_{project.id}")
-            
+
             if not os.path.exists(repo_dir):
-                raise ValidationError("Repository not found. Please clone the repository first.")
-            
+                # Repo not cloned yet — clone it on the requested branch
+                clone_result = GitUtils.clone_repository(
+                    project.repo_url, repo_dir, branch_name
+                )
+                project.repository_path = repo_dir
+                project.default_branch = branch_name
+                project.save(update_fields=['repository_path', 'default_branch'])
+                ProjectService._clear_branch_cache(project.id)
+                return {
+                    'success': True,
+                    'message': f'Repository cloned and switched to branch: {branch_name}',
+                    'current_branch': branch_name,
+                    'project': project,
+                }
+
             # Switch to the specified branch
             switch_result = GitUtils.checkout_branch(repo_dir, branch_name)
-            
+
             # Update project's default branch
             project.default_branch = branch_name
-            project.save()
-            
+            project.repository_path = repo_dir
+            project.save(update_fields=['default_branch', 'repository_path'])
+
             # Clear branch cache for this project
             ProjectService._clear_branch_cache(project.id)
 
@@ -961,7 +980,7 @@ class ProjectService:
                 'current_branch': branch_name,
                 'project': project
             }
-            
+
         except ValidationError:
             raise
         except Exception as e:
