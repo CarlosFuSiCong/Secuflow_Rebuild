@@ -8,6 +8,7 @@ import type { ProjectDetailsProps } from "@/lib/types";
 import { useProjects } from "@/lib/hooks/useProjects";
 import { getProject, getProjectBranches, switchBranch, runTNMAnalysis } from "@/lib/api/projects";
 import { triggerSTCAnalysis, triggerMCSTCAnalysis } from "@/lib/api/stc";
+import { analyzeTNMContributors } from "@/lib/api/contributors";
 import type { Project } from "@/lib/types/project";
 import type { Branch } from "@/lib/types/project";
 import {
@@ -190,9 +191,20 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
     try {
       toast.info("Starting TNM analysis...");
       await runTNMAnalysis(projectId);
+      setAnalysisMessage("TNM analysis complete. Importing contributors...");
+
+      // Import contributors from TNM output into the database
+      try {
+        await analyzeTNMContributors(projectId);
+      } catch (contribErr: any) {
+        console.warn("Contributor import warning:", contribErr);
+        // Non-fatal — continue even if import partially fails
+      }
+
       toast.success("TNM analysis complete!");
       const updatedProject = await getProject(projectId);
       setProject(updatedProject);
+      setAnalysisMessage(null);
       setCurrentStep("stc");
     } catch (err: any) {
       const msg =
@@ -253,21 +265,28 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
       // Immediately poll once to get initial state
       try {
         const initialProject = await getProject(projectId);
-        console.log('Initial project state after switch:', {
-          repository_path: initialProject.repository_path,
-          last_risk_check_at: initialProject.last_risk_check_at,
-          members_count: initialProject.members_count
-        });
         setProject(initialProject);
-        
-        // If TNM is already complete, don't start polling
+
         if (initialProject.repository_path) {
-          setAnalysisMessage(`Branch switched and TNM analysis already completed for ${newBranch}!`);
+          // Repo is cloned — now run TNM for the new branch
+          setAnalysisMessage(`Repository ready on ${newBranch}. Running TNM analysis...`);
+          try {
+            await runTNMAnalysis(projectId);
+            setAnalysisMessage("TNM complete. Importing contributors...");
+            try { await analyzeTNMContributors(projectId); } catch { /* non-fatal */ }
+            const refreshed = await getProject(projectId);
+            setProject(refreshed);
+          } catch (tnmErr: any) {
+            const tnmMsg = tnmErr?.response?.data?.errorMessage || tnmErr?.message || "TNM analysis failed";
+            setAnalysisMessage(tnmMsg);
+            toast.error(tnmMsg);
+          }
           toast.success(`Switched to branch: ${newBranch}`);
           setCurrentStep("stc");
           setRunningTNMAnalysis(false);
           setIsSwitchingBranch(false);
-          return; // Exit early
+          setAnalysisMessage(null);
+          return;
         }
       } catch (err) {
         console.error("Error getting initial project state:", err);
@@ -285,17 +304,29 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
           
           setProject(updatedProject);
           
-          // If TNM is complete, stop polling
+          // If TNM is complete (repo cloned), run TNM analysis then go to STC
           if (updatedProject.repository_path) {
             if (pollIntervalRef.current) {
               clearInterval(pollIntervalRef.current);
               pollIntervalRef.current = null;
             }
-            setAnalysisMessage(`Branch switched and TNM analysis completed for ${newBranch}!`);
+            setAnalysisMessage(`Repository ready on ${newBranch}. Running TNM analysis...`);
+            try {
+              await runTNMAnalysis(projectId);
+              setAnalysisMessage("TNM complete. Importing contributors...");
+              try { await analyzeTNMContributors(projectId); } catch { /* non-fatal */ }
+              const refreshed = await getProject(projectId);
+              setProject(refreshed);
+            } catch (tnmErr: any) {
+              const tnmMsg = tnmErr?.response?.data?.errorMessage || tnmErr?.message || "TNM analysis failed";
+              setAnalysisMessage(tnmMsg);
+              toast.error(tnmMsg);
+            }
             toast.success(`Switched to branch: ${newBranch}`);
             setCurrentStep("stc");
             setRunningTNMAnalysis(false);
             setIsSwitchingBranch(false);
+            setAnalysisMessage(null);
           } else if (pollCount >= maxPolls) {
             if (pollIntervalRef.current) {
               clearInterval(pollIntervalRef.current);
