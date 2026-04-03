@@ -176,7 +176,7 @@ export function CoordinationPairsModal({
         </DialogHeader>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-6 border-b border-border -mt-2">
+        <div className="flex items-center gap-6 border-b border-border mt-4">
           {stcId && (
             <button
               onClick={() => setActiveTab("stc")}
