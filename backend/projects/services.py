@@ -819,9 +819,9 @@ class ProjectService:
                 raise ValidationError("Invalid repository URL format")
             
             # Create repository directory path (prefer env overrides)
-            repositories_root = os.getenv(
-                'TNM_REPOSITORIES_DIR',
-                os.path.join(settings.BASE_DIR, 'backend', 'tnm_repositories')
+            repositories_root = getattr(
+                settings, 'TNM_REPOSITORIES_DIR',
+                os.getenv('TNM_REPOSITORIES_DIR', '/app/tnm_repositories')
             )
             repo_dir = os.path.join(repositories_root, f"project_{project.id}")
             
@@ -887,9 +887,9 @@ class ProjectService:
                 if current_time - cache_time < ProjectService._cache_timeout:
                     return cached_data
             
-            repositories_root = os.getenv(
-                'TNM_REPOSITORIES_DIR',
-                os.path.join(settings.BASE_DIR, 'backend', 'tnm_repositories')
+            repositories_root = getattr(
+                settings, 'TNM_REPOSITORIES_DIR',
+                os.getenv('TNM_REPOSITORIES_DIR', '/app/tnm_repositories')
             )
             repo_dir = os.path.join(repositories_root, f"project_{project.id}")
             
@@ -936,9 +936,9 @@ class ProjectService:
             Dictionary with switch result
         """
         try:
-            repositories_root = os.getenv(
-                'TNM_REPOSITORIES_DIR',
-                os.path.join(settings.BASE_DIR, 'backend', 'tnm_repositories')
+            repositories_root = getattr(
+                settings, 'TNM_REPOSITORIES_DIR',
+                os.getenv('TNM_REPOSITORIES_DIR', '/app/tnm_repositories')
             )
             repo_dir = os.path.join(repositories_root, f"project_{project.id}")
             
