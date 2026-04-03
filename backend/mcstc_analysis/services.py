@@ -309,7 +309,14 @@ class MCSTCAnalysisService:
             
             # Identify role groups
             logger.info("Identifying role groups...")
-            all_users = list(id_to_user.keys())
+            # Clamp all_users to users whose integer IDs fit within the assignment
+            # matrix dimensions — TNM can write more entries in idToUser than matrix rows
+            num_matrix_users = assignment_np.shape[0]
+            all_users = [
+                uid for uid in id_to_user.keys()
+                if uid.isdigit() and int(uid) < num_matrix_users
+            ]
+            logger.info(f"all_users after clamping: {len(all_users)} (matrix rows: {num_matrix_users}, id_to_user entries: {len(id_to_user)})")
             developer_users = set()
             security_users = set()
             ops_users = set()

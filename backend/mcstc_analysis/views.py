@@ -83,7 +83,11 @@ class MCSTCAnalysisViewSet(viewsets.ModelViewSet):
             
             if page is not None:
                 serializer = self.get_serializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
+                paginated_data = self.get_paginated_response(serializer.data).data
+                return ApiResponse.success(
+                    data=paginated_data,
+                    message="MC-STC analyses retrieved successfully"
+                )
             
             serializer = self.get_serializer(queryset, many=True)
             return ApiResponse.success(

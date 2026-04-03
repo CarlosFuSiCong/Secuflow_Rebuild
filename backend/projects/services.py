@@ -1003,7 +1003,8 @@ class ProjectService:
                 repos_root = getattr(settings, 'TNM_REPOSITORIES_DIR', os.getenv('TNM_REPOSITORIES_DIR', '/app/tnm_repositories'))
                 output_root = getattr(settings, 'TNM_OUTPUT_DIR', os.getenv('TNM_OUTPUT_DIR', '/app/tnm_output'))
                 repo_git_path = f"{repos_root}/project_{project.id}/.git"
-                project_output_root = f"{output_root}/project_{project.id}"
+                branch_fs = branch.replace('/', '_')
+                project_output_root = f"{output_root}/project_{project.id}_{branch_fs}"
 
                 logger.info(f"TNM paths - repo: {repo_git_path}, output: {project_output_root}, branch: {branch}")
 

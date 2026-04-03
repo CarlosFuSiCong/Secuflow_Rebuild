@@ -130,43 +130,35 @@ class Project(models.Model):
     @property
     def stc_risk_score(self):
         """
-        Calculate STC risk score based on latest STC analysis for current branch.
-        Risk score = 1 - STC value (higher STC means lower risk)
-        Returns None if no analysis exists for current branch.
+        STC coordination score (0–1, higher = better coordination).
+        Returns the most recent completed analysis regardless of branch.
+        Named stc_risk_score for API compatibility.
         """
         try:
-            current_branch = self.default_branch or 'main'
             latest_stc = self.stc_analyses.filter(
-                is_completed=True,
-                branch_analyzed=current_branch
-            ).first()
+                is_completed=True
+            ).order_by('-analysis_date').first()
             if latest_stc and latest_stc.stc_value is not None:
                 return round(1.0 - latest_stc.stc_value, 3)
         except Exception:
             pass
-        # Return None to indicate no analysis, not 1.0 (which would be misleading)
-        # Frontend must handle None explicitly
         return None
-    
+
     @property
     def mcstc_risk_score(self):
         """
-        Calculate MC-STC risk score based on latest MC-STC analysis for current branch.
-        Risk score = 1 - MC-STC value (higher MC-STC means lower risk)
-        Returns None if no analysis exists for current branch.
+        MC-STC coordination score (0–1, higher = better coordination).
+        Returns the most recent completed analysis regardless of branch.
+        Named mcstc_risk_score for API compatibility.
         """
         try:
-            current_branch = self.default_branch or 'main'
             latest_mcstc = self.mcstc_analyses.filter(
-                is_completed=True,
-                branch_analyzed=current_branch
-            ).first()
+                is_completed=True
+            ).order_by('-analysis_date').first()
             if latest_mcstc and latest_mcstc.mcstc_value is not None:
                 return round(1.0 - latest_mcstc.mcstc_value, 3)
         except Exception:
             pass
-        # Return None to indicate no analysis, not 1.0 (which would be misleading)
-        # Frontend must handle None explicitly
         return None
     
     def needs_risk_assessment(self, max_age_days: int = 7) -> bool:
