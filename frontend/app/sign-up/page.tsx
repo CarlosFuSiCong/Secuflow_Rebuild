@@ -27,7 +27,7 @@ export default function SignUpPage() {
           {/* Header section */}
           <AuthHeader
             title="Create an account"
-            description="Let's get started. Fill in the details below to create your account."
+            description="Get started for free"
           />
 
           {/* Form fields */}

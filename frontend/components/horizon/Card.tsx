@@ -11,7 +11,7 @@ function Card(props: CardProps) {
 
   return (
     <div
-      className={`!z-5 relative flex flex-col rounded-[20px] bg-card text-card-foreground shadow-sm ${extra}`}
+      className={`relative flex flex-col rounded border border-border bg-card text-card-foreground ${extra ?? ""}`}
       {...rest}
     >
       {children}

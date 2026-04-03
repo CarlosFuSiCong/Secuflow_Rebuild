@@ -11,10 +11,19 @@ export const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers = config.headers ?? {};
-      (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
+    // Never attach tokens to auth endpoints — the server validates any
+    // Authorization header even on AllowAny views, which causes
+    // "Given token not valid for any token type" when a stale token exists.
+    const isAuthEndpoint =
+      config.url?.includes("/auth/login/") ||
+      config.url?.includes("/auth/register/");
+
+    if (!isAuthEndpoint) {
+      const token = localStorage.getItem("access_token");
+      if (token) {
+        config.headers = config.headers ?? {};
+        (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
+      }
     }
   }
   return config;

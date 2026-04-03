@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Card from "@/components/horizon/Card";
+import { Input } from "@/components/ui/input";
 import { DASHBOARD_TEXT } from "@/app/dashboard/constants";
 import type { ProjectListProps } from "@/lib/types";
 import { useProjects } from "@/lib/hooks/useProjects";
 import { enhanceProject, type EnhancedProject } from "@/lib/utils/project-helpers";
 import { getProjectBranches } from "@/lib/api/projects";
+import { Users, GitBranch, Loader2 } from "lucide-react";
 
 export function ProjectList({ selectedProjectId, onProjectSelect }: ProjectListProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,13 +88,13 @@ export function ProjectList({ selectedProjectId, onProjectSelect }: ProjectListP
   const getRiskBadgeVariant = (riskLevel: string) => {
     switch (riskLevel) {
       case "High":
-        return "bg-destructive/10 text-destructive";
+        return "text-red-600 border border-red-300 bg-transparent dark:text-red-400 dark:border-red-700";
       case "Medium":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300";
+        return "text-orange-500 border border-orange-300 bg-transparent dark:text-orange-400 dark:border-orange-700";
       case "Low":
-        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300";
+        return "text-green-600 border border-green-300 bg-transparent dark:text-green-400 dark:border-green-700";
       default:
-        return "bg-muted text-muted-foreground";
+        return "text-muted-foreground border border-border bg-transparent";
     }
   };
 
@@ -105,28 +107,20 @@ export function ProjectList({ selectedProjectId, onProjectSelect }: ProjectListP
           </h3>
 
           {/* Search Input */}
-          <div className="relative">
-            <input
-              type="text"
-              placeholder={DASHBOARD_TEXT.PROJECT_SEARCH_PLACEHOLDER}
-              value={searchQuery}
-              onChange={(e) => handleLocalSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
-              disabled={loading}
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-          </div>
+          <Input
+            type="text"
+            placeholder={DASHBOARD_TEXT.PROJECT_SEARCH_PLACEHOLDER}
+            value={searchQuery}
+            onChange={(e) => handleLocalSearch(e.target.value)}
+            disabled={loading}
+          />
         </div>
 
         {/* Loading State */}
         {(loading || allProjectsLoading || loadingBranches) && (
-          <div className="text-center py-8 text-muted-foreground">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
-            {loadingBranches ? "Loading project details..." : "Loading projects..."}
+          <div className="flex flex-col items-center py-10 text-muted-foreground gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-xs">{loadingBranches ? "Loading project details..." : "Loading projects..."}</span>
           </div>
         )}
 
@@ -171,17 +165,13 @@ export function ProjectList({ selectedProjectId, onProjectSelect }: ProjectListP
 
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <div className="flex items-center space-x-4">
-                      <span className="flex items-center">
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5" />
                         {project.members_count || 0}
                       </span>
-                      <span className="flex items-center">
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-                        </svg>
-                        {loadingBranches ? "..." : (project.branchCount || 0)}
+                      <span className="flex items-center gap-1">
+                        <GitBranch className="w-3.5 h-3.5" />
+                        {loadingBranches ? "…" : (project.branchCount || 0)}
                       </span>
                     </div>
                     <span className="font-medium text-primary">

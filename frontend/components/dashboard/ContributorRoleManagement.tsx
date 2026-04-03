@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Save, RefreshCw, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Save, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import {
   getProjectContributorsClassification,
   getFunctionalRoleChoices,
@@ -160,9 +160,9 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
   if (loading) {
     return (
       <Card className="p-8">
-        <div className="flex items-center justify-center">
-          <RefreshCw className="h-6 w-6 animate-spin text-primary" />
-          <span className="ml-2">Loading contributors...</span>
+        <div className="flex items-center justify-center gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-xs">Loading contributors...</span>
         </div>
       </Card>
     );
@@ -173,7 +173,9 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
       {/* Header with actions */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Contributor Roles</h3>
+          <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground mb-0.5">
+            Contributor Roles
+          </p>
           <p className="text-sm text-muted-foreground">
             Set functional roles for MC-STC analysis ({totalCount} total)
           </p>
@@ -258,11 +260,11 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="border-b">
-              <tr className="text-sm text-muted-foreground">
-                <th className="text-left p-3 font-medium">Contributor</th>
-                <th className="text-left p-3 font-medium">Activity</th>
-                <th className="text-left p-3 font-medium">Role</th>
-                <th className="text-left p-3 font-medium">Core</th>
+              <tr className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
+                <th className="text-left p-3">Contributor</th>
+                <th className="text-left p-3">Activity</th>
+                <th className="text-left p-3">Role</th>
+                <th className="text-left p-3">Core</th>
               </tr>
             </thead>
             <tbody>
@@ -382,11 +384,8 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
       </Card>
 
       {/* Info */}
-      <div className="text-sm text-muted-foreground">
-        <p>
-          💡 Tip: Set roles before running MC-STC analysis to get role-specific coordination
-          insights.
-        </p>
+      <div className="text-xs text-muted-foreground border border-border rounded px-3 py-2">
+        Assign functional roles to contributors before running MC-STC analysis for role-specific coordination insights.
       </div>
     </div>
   );

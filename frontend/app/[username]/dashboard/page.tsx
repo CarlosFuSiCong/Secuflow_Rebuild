@@ -21,21 +21,18 @@ export default function UserDashboardPage() {
     <div className="bg-background">
       <ProfileNavbar />
 
-      <main className="container mx-auto px-4 py-6">
-        <div className="mb-8">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-8 pb-6 border-b border-border">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1 font-medium tracking-wide uppercase">
             <a href={`/${params.username}`} className="hover:text-foreground transition-colors">
               {params.username}
             </a>
             <span>/</span>
-            <span className="text-foreground font-medium">dashboard</span>
+            <span className="text-foreground">dashboard</span>
           </div>
-          <h1 className="text-3xl font-bold text-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             {DASHBOARD_TEXT.PAGE_TITLE}
           </h1>
-          <p className="text-muted-foreground mt-2">
-            Manage your projects, team members, branches, and view analytics
-          </p>
         </div>
 
         <div className="grid grid-cols-12 gap-6">

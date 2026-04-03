@@ -142,25 +142,25 @@ export function ProjectTable({
   };
 
   return (
-    <div className="overflow-hidden rounded-md border">
+    <div className="border border-border">
       <div className="overflow-x-auto">
-        <Table className="min-w-[640px]">
-          <TableHeader className="h-12">
+        <Table>
+          <TableHeader className="h-11">
             <TableRow>
-              <TableHead className="text-foreground font-semibold">{TEXT.HEADER_PROJECT}</TableHead>
-              <TableHead className="text-foreground font-semibold hidden lg:table-cell">
+              <TableHead className="text-xs font-medium tracking-widest uppercase text-muted-foreground">{TEXT.HEADER_PROJECT}</TableHead>
+              <TableHead className="text-xs font-medium tracking-widest uppercase text-muted-foreground hidden lg:table-cell">
                 {TEXT.HEADER_STC_RISK}
               </TableHead>
-              <TableHead className="text-foreground font-semibold hidden lg:table-cell">
+              <TableHead className="text-xs font-medium tracking-widest uppercase text-muted-foreground hidden lg:table-cell">
                 {TEXT.HEADER_MCSTC_RISK}
               </TableHead>
-              <TableHead className="text-foreground font-semibold hidden md:table-cell">
+              <TableHead className="text-xs font-medium tracking-widest uppercase text-muted-foreground hidden md:table-cell">
                 {TEXT.HEADER_MEMBERS}
               </TableHead>
-              <TableHead className="text-foreground font-semibold hidden xl:table-cell">
+              <TableHead className="text-xs font-medium tracking-widest uppercase text-muted-foreground hidden xl:table-cell">
                 {TEXT.HEADER_LAST_ANALYSIS}
               </TableHead>
-              <TableHead className="text-foreground font-semibold">{TEXT.HEADER_CREATED}</TableHead>
+              <TableHead className="text-xs font-medium tracking-widest uppercase text-muted-foreground">{TEXT.HEADER_CREATED}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

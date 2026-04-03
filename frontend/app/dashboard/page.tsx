@@ -20,14 +20,14 @@ function DashboardContent() {
   }, [projectIdFromUrl]);
 
   return (
-    <main className="container mx-auto px-4 py-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">
+    <main className="container mx-auto px-4 py-8">
+      <div className="mb-8 pb-6 border-b border-border">
+        <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground mb-1">
+          Overview
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {DASHBOARD_TEXT.PAGE_TITLE}
         </h1>
-        <p className="text-muted-foreground mt-2">
-          View your project details, team members, branches, and analytics
-        </p>
       </div>
 
       <div className="w-full">

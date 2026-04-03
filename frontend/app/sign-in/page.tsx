@@ -26,7 +26,7 @@ export default function SignInPage() {
           {/* Header section */}
           <AuthHeader
             title="Sign in"
-            description="Log in to unlock tailored content and stay connected with your community."
+            description="Welcome back"
           />
 
           {/* Sign-in form */}

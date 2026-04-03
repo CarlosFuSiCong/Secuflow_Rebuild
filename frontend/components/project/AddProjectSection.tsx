@@ -67,8 +67,10 @@ export function AddProjectSection({ onProjectAdded }: { onProjectAdded?: () => v
   return (
     <section className="flex flex-col gap-4 lg:gap-6">
       <div className="space-y-1">
-        <h2 className="text-xl font-semibold">{TEXT.SECTION_TITLE}</h2>
-        <p className="text-muted-foreground text-sm lg:text-base">
+        <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
+          {TEXT.SECTION_TITLE}
+        </p>
+        <p className="text-muted-foreground text-sm">
           {TEXT.SECTION_DESCRIPTION}
         </p>
       </div>
@@ -76,9 +78,8 @@ export function AddProjectSection({ onProjectAdded }: { onProjectAdded?: () => v
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-semibold">{TEXT.CARD_TITLE}</CardTitle>
-            {/* Step indicator */}
-            <span className="text-sm text-muted-foreground">
+            <CardTitle className="text-base font-semibold tracking-tight">{TEXT.CARD_TITLE}</CardTitle>
+            <span className="text-xs text-muted-foreground">
               {getStepIndicator()}
             </span>
           </div>

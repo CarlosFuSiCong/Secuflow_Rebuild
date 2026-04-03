@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { TableRow, TableCell } from "@/components/ui/table";
 import type { Project } from "@/lib/api/projects";
 import { AlertTriangle, Shield, Users } from "lucide-react";
@@ -11,37 +10,32 @@ interface ProjectTableRowProps {
   project: Project;
 }
 
-// Helper function to format date
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString();
 }
 
-// Helper function to get risk level and color
-function getRiskLevel(score?: number): { label: string; variant: "default" | "secondary" | "destructive" | "outline" } {
+function getRiskDisplay(score?: number): { label: string; className: string } {
   if (score === undefined || score === null) {
-    return { label: "N/A", variant: "secondary" };
+    return { label: "N/A", className: "text-muted-foreground border border-border bg-transparent" };
   }
-
-  if (score >= 80) {
-    return { label: "High", variant: "destructive" };
-  } else if (score >= 50) {
-    return { label: "Medium", variant: "outline" };
+  const pct = score * 100;
+  if (pct >= 80) {
+    return { label: "High", className: "text-red-600 border border-red-300 bg-transparent dark:text-red-400 dark:border-red-700" };
+  } else if (pct >= 50) {
+    return { label: "Medium", className: "text-orange-500 border border-orange-300 bg-transparent dark:text-orange-400 dark:border-orange-700" };
   } else {
-    return { label: "Low", variant: "default" };
+    return { label: "Low", className: "text-green-600 border border-green-300 bg-transparent dark:text-green-400 dark:border-green-700" };
   }
 }
 
 export function ProjectTableRow({ project }: ProjectTableRowProps) {
   const router = useRouter();
-  const stcRisk = getRiskLevel(project.stc_risk_score);
-  const mcstcRisk = getRiskLevel(project.mcstc_risk_score);
+  const stcRisk = getRiskDisplay(project.stc_risk_score);
+  const mcstcRisk = getRiskDisplay(project.mcstc_risk_score);
 
-  // Check if project has completed analysis
-  // Show data when last_risk_check_at exists (STC has run) OR when repository_path exists (TNM complete)
   const hasBasicAnalysis = !!project.last_risk_check_at;
-  const tnmComplete = !!project.repository_path;  // TNM完成 = 仓库已克隆
-
+  const tnmComplete = !!project.repository_path;
 
   const handleRowClick = () => {
     router.push(`/dashboard?projectId=${project.id}`);
@@ -59,16 +53,14 @@ export function ProjectTableRow({ project }: ProjectTableRowProps) {
           <span className="text-xs text-muted-foreground truncate max-w-[200px]">
             {project.repo_url}
           </span>
-          {/* Show analysis progress if not complete */}
           <ProjectAnalysisStatus
             projectId={project.id}
             autoRunSTC={project.auto_run_stc}
             autoRunMCSTC={project.auto_run_mcstc}
           />
-          {/* Show contributor management hint when TNM complete but no STC */}
           {tnmComplete && !hasBasicAnalysis && (
-            <span className="text-xs text-blue-600 dark:text-blue-400">
-              💡 TNM complete - Contributors ready for role assignment
+            <span className="text-xs text-muted-foreground">
+              TNM complete — contributors ready for role assignment
             </span>
           )}
         </div>
@@ -79,16 +71,16 @@ export function ProjectTableRow({ project }: ProjectTableRowProps) {
         {hasBasicAnalysis ? (
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-muted-foreground" />
-            <Badge variant={stcRisk.variant}>
+            <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${stcRisk.className}`}>
               {project.stc_risk_score !== undefined && project.stc_risk_score !== null
                 ? `${(project.stc_risk_score * 100).toFixed(1)}%`
                 : stcRisk.label}
-            </Badge>
+            </span>
           </div>
         ) : tnmComplete ? (
           <span className="text-xs text-muted-foreground">Ready for analysis</span>
         ) : (
-          <span className="text-xs text-muted-foreground">Analyzing...</span>
+          <span className="text-xs text-muted-foreground">Analyzing…</span>
         )}
       </TableCell>
 
@@ -97,16 +89,16 @@ export function ProjectTableRow({ project }: ProjectTableRowProps) {
         {hasBasicAnalysis ? (
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-            <Badge variant={mcstcRisk.variant}>
+            <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${mcstcRisk.className}`}>
               {project.mcstc_risk_score !== undefined && project.mcstc_risk_score !== null
                 ? `${(project.mcstc_risk_score * 100).toFixed(1)}%`
                 : mcstcRisk.label}
-            </Badge>
+            </span>
           </div>
         ) : tnmComplete ? (
           <span className="text-xs text-muted-foreground">Ready for analysis</span>
         ) : (
-          <span className="text-xs text-muted-foreground">Analyzing...</span>
+          <span className="text-xs text-muted-foreground">Analyzing…</span>
         )}
       </TableCell>
 
@@ -120,7 +112,7 @@ export function ProjectTableRow({ project }: ProjectTableRowProps) {
         ) : tnmComplete ? (
           <span className="text-xs text-muted-foreground">Ready</span>
         ) : (
-          <span className="text-xs text-muted-foreground">-</span>
+          <span className="text-xs text-muted-foreground">—</span>
         )}
       </TableCell>
 
@@ -128,7 +120,7 @@ export function ProjectTableRow({ project }: ProjectTableRowProps) {
       <TableCell className="hidden xl:table-cell text-sm text-muted-foreground">
         {hasBasicAnalysis
           ? project.last_risk_check_at ? formatDate(project.last_risk_check_at) : "Not analyzed"
-          : tnmComplete ? "TNM complete" : "Analyzing..."}
+          : tnmComplete ? "TNM complete" : "Analyzing…"}
       </TableCell>
 
       {/* Created Date */}

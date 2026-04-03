@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import { PlayCircle, Loader2, GitBranch, Users, BarChart3, CheckCircle2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 
 type AnalysisStep = "tnm" | "stc" | "classification" | "mcstc" | "complete";
 
@@ -397,41 +396,33 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
 
   // Render step indicator
   const renderStepIndicator = (step: AnalysisStep, label: string, icon: React.ReactNode) => {
-    // Analysis Pipeline should reflect workflow state (currentStep)
-    // NOT historical project data (for branch switching scenarios)
     const isCurrent = currentStep === step;
-    
-    // A step is complete ONLY if it's before the current step in the workflow
     const stepOrder: AnalysisStep[] = ["tnm", "stc", "classification", "mcstc", "complete"];
     const currentStepIndex = stepOrder.indexOf(currentStep);
     const thisStepIndex = stepOrder.indexOf(step);
-    
-    // Only show as complete if this step comes before current step
     const isComplete = thisStepIndex < currentStepIndex;
-    
+
     return (
-      <div className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
-        isComplete ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
-        isCurrent ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" :
-        "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20"
+      <div className={`flex items-center gap-3 p-4 rounded border transition-all ${
+        isComplete ? "border-green-500/40 bg-green-50/50 dark:bg-green-950/10" :
+        isCurrent ? "border-foreground bg-muted" :
+        "border-border bg-background"
       }`}>
-        <div className={`p-2 rounded-full ${
+        <div className={`p-2 rounded ${
           isComplete ? "bg-green-500 text-white" :
-          isCurrent ? "bg-blue-500 text-white" :
-          "bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+          isCurrent ? "bg-foreground text-background" :
+          "bg-muted text-muted-foreground border border-border"
         }`}>
-          {isComplete ? <CheckCircle2 className="h-5 w-5" /> : icon}
+          {isComplete ? <CheckCircle2 className="h-4 w-4" /> : icon}
         </div>
         <div className="flex-1">
-          <div className="font-semibold">{label}</div>
+          <div className="text-sm font-medium">{label}</div>
           <div className="text-xs text-muted-foreground">
             {isComplete ? "Completed" : isCurrent ? "In Progress" : "Pending"}
           </div>
         </div>
         {isComplete && (
-          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100">
-            ✓
-          </Badge>
+          <span className="text-xs text-green-600 dark:text-green-400 font-medium">✓</span>
         )}
       </div>
     );
@@ -473,13 +464,13 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
       />
 
       {/* Tabs Navigation */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <div className="flex gap-4">
+      <div className="border-b border-border">
+        <div className="flex gap-0">
           <button
             onClick={() => setActiveTab("workflow")}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === "workflow"
-                ? "border-primary text-primary"
+                ? "border-foreground text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -487,9 +478,9 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
           </button>
           <button
             onClick={() => setActiveTab("analytics")}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
               activeTab === "analytics"
-                ? "border-primary text-primary"
+                ? "border-foreground text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
             disabled={!hasBasicAnalysis}
@@ -504,11 +495,11 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Step Indicator */}
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold mb-4">Analysis Pipeline</h3>
-            {renderStepIndicator("tnm", "1. TNM Analysis", <GitBranch className="h-5 w-5" />)}
-            {renderStepIndicator("stc", "2. STC Calculation", <BarChart3 className="h-5 w-5" />)}
-            {renderStepIndicator("classification", "3. Role Classification", <Users className="h-5 w-5" />)}
-            {renderStepIndicator("mcstc", "4. MC-STC Analysis", <BarChart3 className="h-5 w-5" />)}
+            <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground mb-4">Analysis Pipeline</p>
+            {renderStepIndicator("tnm", "1. TNM Analysis", <GitBranch className="h-4 w-4" />)}
+            {renderStepIndicator("stc", "2. STC Calculation", <BarChart3 className="h-4 w-4" />)}
+            {renderStepIndicator("classification", "3. Role Classification", <Users className="h-4 w-4" />)}
+            {renderStepIndicator("mcstc", "4. MC-STC Analysis", <BarChart3 className="h-4 w-4" />)}
           </div>
 
           {/* Right: Current Step Details */}
@@ -517,8 +508,8 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
               <Card>
                 <div className="p-6 space-y-6">
                   <div>
-                    <h3 className="text-xl font-semibold mb-2">Step 1: TNM Analysis</h3>
-                    <p className="text-muted-foreground">
+                    <h3 className="text-base font-semibold tracking-tight mb-1">Step 1: TNM Analysis</h3>
+                    <p className="text-sm text-muted-foreground">
                       Analyze repository structure and extract contributor information.
                     </p>
                   </div>
@@ -578,8 +569,8 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
               <Card>
                 <div className="p-6 space-y-6">
                   <div>
-                    <h3 className="text-xl font-semibold mb-2">Step 2: STC Analysis</h3>
-                    <p className="text-muted-foreground">
+                    <h3 className="text-base font-semibold tracking-tight mb-1">Step 2: STC Analysis</h3>
+                    <p className="text-sm text-muted-foreground">
                       Calculate Socio-Technical Congruence to measure coordination alignment.
                     </p>
                   </div>
@@ -627,8 +618,8 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
               <Card>
                 <div className="p-6 space-y-6">
                   <div>
-                    <h3 className="text-xl font-semibold mb-2">Step 3: Contributors Classification</h3>
-                    <p className="text-muted-foreground">
+                    <h3 className="text-base font-semibold tracking-tight mb-1">Step 3: Contributors Classification</h3>
+                    <p className="text-sm text-muted-foreground">
                       Assign functional roles to contributors for MC-STC analysis.
                     </p>
                   </div>
@@ -651,8 +642,8 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
               <Card>
                 <div className="p-6 space-y-6">
                   <div>
-                    <h3 className="text-xl font-semibold mb-2">Step 4: MC-STC Analysis</h3>
-                    <p className="text-muted-foreground">
+                    <h3 className="text-base font-semibold tracking-tight mb-1">Step 4: MC-STC Analysis</h3>
+                    <p className="text-sm text-muted-foreground">
                       Calculate Multi-Class STC based on contributor functional roles.
                     </p>
                   </div>
@@ -663,9 +654,9 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
                     </Alert>
                   )}
 
-                  <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
-                    <AlertCircle className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="text-blue-700 dark:text-blue-300">
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
                       Make sure contributor roles are properly assigned before running MC-STC analysis.
                     </AlertDescription>
                   </Alert>
@@ -706,10 +697,10 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
             {currentStep === "complete" && (
               <Card>
                 <div className="p-6 space-y-6 text-center">
-                  <div className="text-6xl mb-4">🎉</div>
+                  <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto" />
                   <div>
-                    <h3 className="text-xl font-semibold mb-2">Analysis Complete!</h3>
-                    <p className="text-muted-foreground">
+                    <h3 className="text-base font-semibold tracking-tight mb-1">Analysis Complete</h3>
+                    <p className="text-sm text-muted-foreground">
                       All analysis steps have been completed successfully. View detailed history and charts in the Analysis History tab.
                     </p>
                   </div>

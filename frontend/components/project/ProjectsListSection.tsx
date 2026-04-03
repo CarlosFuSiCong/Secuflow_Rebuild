@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { ProjectSearchBar } from "./ProjectSearchBar";
 import { ProjectTable } from "./ProjectTable";
 import { useProjects } from "@/lib/hooks/useProjects";
@@ -49,8 +50,10 @@ export function ProjectsListSection({
   return (
     <section className="flex flex-col gap-4 lg:gap-6">
       <div className="space-y-1">
-        <h2 className="text-xl font-semibold">{TEXT.SECTION_TITLE}</h2>
-        <p className="text-muted-foreground text-sm lg:text-base">
+        <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
+          {TEXT.SECTION_TITLE}
+        </p>
+        <p className="text-muted-foreground text-sm">
           {TEXT.SECTION_DESCRIPTION}
         </p>
       </div>
@@ -61,9 +64,10 @@ export function ProjectsListSection({
       />
 
       {(loading || allProjectsLoading) && (
-        <p className="text-center text-muted-foreground py-8">
-          {TEXT.LOADING}
-        </p>
+        <div className="flex flex-col items-center py-10 text-muted-foreground gap-2">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-xs">{TEXT.LOADING}</span>
+        </div>
       )}
 
       {error && !loading && !allProjectsLoading && (

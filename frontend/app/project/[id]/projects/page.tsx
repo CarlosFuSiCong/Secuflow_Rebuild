@@ -17,10 +17,20 @@ export default function ProjectsPage() {
     <div className="bg-background">
       <ProfileNavbar />
       <main>
-        <div className="container mx-auto flex flex-col gap-6 p-4 lg:gap-8 lg:p-6">
-          <AddProjectSection onProjectAdded={handleProjectAdded} />
-          <Separator />
-          <ProjectsListSection useProjectsData={projectsData} />
+        <div className="container mx-auto px-4 py-8">
+          <div className="mb-8 pb-6 border-b border-border">
+            <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground mb-1">
+              Workspace
+            </p>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Projects
+            </h1>
+          </div>
+          <div className="flex flex-col gap-8">
+            <AddProjectSection onProjectAdded={handleProjectAdded} />
+            <Separator />
+            <ProjectsListSection useProjectsData={projectsData} />
+          </div>
         </div>
       </main>
     </div>
