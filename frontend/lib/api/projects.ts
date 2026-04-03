@@ -120,3 +120,20 @@ export async function switchBranch(projectId: string, branchId: string): Promise
   }
   return data.data;
 }
+
+export interface RunTNMResponse {
+  data_type: string;
+  essential_data_extracted: boolean;
+  runs: Array<{ command: string[]; returncode: number; stdout: string; stderr: string }>;
+}
+
+export async function runTNMAnalysis(projectId: string): Promise<RunTNMResponse> {
+  const { data } = await apiClient.post<ApiResponse<RunTNMResponse>>("/tnm/run/", {
+    project_id: projectId,
+    data_type: "coordination_minimal",
+  });
+  if (!data.succeed) {
+    throw new Error(data.errorMessage || "TNM analysis failed");
+  }
+  return data.data!;
+}

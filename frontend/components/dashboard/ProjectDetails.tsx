@@ -6,7 +6,7 @@ import { ProjectCharts } from "./ProjectCharts";
 import { DASHBOARD_TEXT } from "@/app/dashboard/constants";
 import type { ProjectDetailsProps } from "@/lib/types";
 import { useProjects } from "@/lib/hooks/useProjects";
-import { getProject, getProjectBranches, switchBranch } from "@/lib/api/projects";
+import { getProject, getProjectBranches, switchBranch, runTNMAnalysis } from "@/lib/api/projects";
 import { triggerSTCAnalysis, triggerMCSTCAnalysis } from "@/lib/api/stc";
 import type { Project } from "@/lib/types/project";
 import type { Branch } from "@/lib/types/project";
@@ -171,16 +171,35 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
 
   // Handle TNM re-run
   const handleRunTNMAnalysis = async () => {
+    if (!projectId) return;
+
+    // If repo not cloned yet, trigger via branch switch (which clones + runs TNM)
+    if (!project?.repository_path) {
+      const targetBranch = branches.find((b) => b.name === selectedBranch);
+      if (!targetBranch?.branch_id) {
+        toast.error("Please select a branch first, then confirm to start TNM analysis.");
+        return;
+      }
+      await handleConfirmBranchSwitch(selectedBranch);
+      return;
+    }
+
+    // Repo already cloned — re-run TNM directly
     setRunningTNMAnalysis(true);
     setAnalysisMessage(null);
     try {
-      // Backend endpoint not yet implemented
-      const msg = "TNM re-run functionality is not yet available. Please contact support.";
-      setAnalysisMessage(msg);
-      toast.warning(msg);
+      toast.info("Starting TNM analysis...");
+      await runTNMAnalysis(projectId);
+      toast.success("TNM analysis complete!");
+      const updatedProject = await getProject(projectId);
+      setProject(updatedProject);
+      setCurrentStep("stc");
     } catch (err: any) {
-      console.error("Failed to trigger TNM analysis:", err);
-      const msg = err?.response?.data?.message || "Failed to start TNM analysis";
+      const msg =
+        err?.response?.data?.errorMessage ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to start TNM analysis";
       setAnalysisMessage(msg);
       toast.error(msg);
     } finally {
@@ -340,7 +359,11 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
       }, 3000);
     } catch (err: any) {
       console.error("Failed to trigger STC analysis:", err);
-      const msg = err?.response?.data?.message || "Failed to start STC analysis";
+      const msg =
+        err?.response?.data?.errorMessage ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to start STC analysis";
       setAnalysisMessage(msg);
       toast.error(msg);
     } finally {
@@ -372,7 +395,11 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
       }, 3000);
     } catch (err: any) {
       console.error("Failed to trigger MC-STC analysis:", err);
-      const msg = err?.response?.data?.message || "Failed to start MC-STC analysis";
+      const msg =
+        err?.response?.data?.errorMessage ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to start MC-STC analysis";
       setAnalysisMessage(msg);
       toast.error(msg);
     } finally {
@@ -515,19 +542,32 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
                   </div>
 
                   {/* Status Display */}
-                  {!project.repository_path ? (
+                  {runningTNMAnalysis ? (
                     <Alert>
                       <Loader2 className="h-4 w-4 animate-spin" />
                       <AlertDescription>
                         TNM analysis is running... This may take several minutes.
                       </AlertDescription>
                     </Alert>
+                  ) : !project.repository_path ? (
+                    <Alert>
+                      <AlertDescription className="text-muted-foreground">
+                        Repository not yet cloned. Select a branch above and click{" "}
+                        <strong>Start TNM Analysis</strong> to begin.
+                      </AlertDescription>
+                    </Alert>
                   ) : (
-                    <Alert className="border-green-500 bg-green-50 dark:bg-green-950/20">
+                    <Alert className="border-green-500/40 bg-green-50/50 dark:bg-green-950/10">
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
                       <AlertDescription className="text-green-700 dark:text-green-300">
-                        TNM analysis completed! {project.members_count || 0} contributors found.
+                        TNM analysis completed — {project.members_count || 0} contributors found.
                       </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {analysisMessage && !runningTNMAnalysis && (
+                    <Alert>
+                      <AlertDescription>{analysisMessage}</AlertDescription>
                     </Alert>
                   )}
 
@@ -535,7 +575,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
                   <div className="flex gap-4">
                     <Button
                       onClick={handleRunTNMAnalysis}
-                      disabled={runningTNMAnalysis || !project.repository_path}
+                      disabled={runningTNMAnalysis}
                       size="lg"
                     >
                       {runningTNMAnalysis ? (
@@ -546,7 +586,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
                       ) : (
                         <>
                           <PlayCircle className="mr-2 h-4 w-4" />
-                          Re-run TNM Analysis
+                          {project.repository_path ? "Re-run TNM Analysis" : "Start TNM Analysis"}
                         </>
                       )}
                     </Button>
