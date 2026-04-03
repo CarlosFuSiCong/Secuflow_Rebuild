@@ -20,7 +20,7 @@ import { AnalyticsHistory } from "./project-details/AnalyticsHistory";
 import { CoordinationPairsModal } from "./project-details/CoordinationPairsModal";
 import { ContributorRoleManagement } from "./ContributorRoleManagement";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, Loader2, GitBranch, Users, BarChart3, CheckCircle2, AlertCircle } from "lucide-react";
+import { PlayCircle, Loader2, GitBranch, Users, BarChart3, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 
@@ -616,9 +616,31 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
                   </div>
 
                   {analysisMessage && (
-                    <Alert>
-                      <AlertDescription>{analysisMessage}</AlertDescription>
-                    </Alert>
+                    analysisMessage.toLowerCase().includes("tnm") ? (
+                      <Alert className="border-orange-300/60 bg-orange-50/50 dark:bg-orange-950/10 dark:border-orange-700/40">
+                        <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                        <AlertDescription className="text-orange-800 dark:text-orange-300">
+                          {analysisMessage}
+                          <div className="mt-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setAnalysisMessage(null);
+                                setCurrentStep("tnm");
+                              }}
+                            >
+                              <PlayCircle className="mr-2 h-3.5 w-3.5" />
+                              Re-run TNM Analysis
+                            </Button>
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+                    ) : (
+                      <Alert>
+                        <AlertDescription>{analysisMessage}</AlertDescription>
+                      </Alert>
+                    )
                   )}
 
                   <div className="flex gap-4">
@@ -649,6 +671,17 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
                         Next: Role Classification →
                       </Button>
                     )}
+
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={() => {
+                        setAnalysisMessage(null);
+                        setCurrentStep("tnm");
+                      }}
+                    >
+                      ← Back to TNM
+                    </Button>
                   </div>
                 </div>
               </Card>
