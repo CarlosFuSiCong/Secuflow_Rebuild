@@ -15,27 +15,27 @@ function formatDate(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-function getRiskDisplay(score?: number): { label: string; className: string } {
+function getScoreDisplay(score?: number): { label: string; className: string } {
   if (score === undefined || score === null) {
     return { label: "N/A", className: "text-muted-foreground border border-border bg-transparent" };
   }
   const pct = score * 100;
-  if (pct >= 80) {
-    return { label: "High", className: "text-red-600 border border-red-300 bg-transparent dark:text-red-400 dark:border-red-700" };
-  } else if (pct >= 50) {
-    return { label: "Medium", className: "text-orange-500 border border-orange-300 bg-transparent dark:text-orange-400 dark:border-orange-700" };
+  if (pct > 70) {
+    return { label: "Good", className: "text-green-600 border border-green-300 bg-transparent dark:text-green-400 dark:border-green-700" };
+  } else if (pct > 30) {
+    return { label: "Fair", className: "text-orange-500 border border-orange-300 bg-transparent dark:text-orange-400 dark:border-orange-700" };
   } else {
-    return { label: "Low", className: "text-green-600 border border-green-300 bg-transparent dark:text-green-400 dark:border-green-700" };
+    return { label: "Poor", className: "text-red-600 border border-red-300 bg-transparent dark:text-red-400 dark:border-red-700" };
   }
 }
 
 export function ProjectTableRow({ project }: ProjectTableRowProps) {
   const router = useRouter();
-  const stcRisk = getRiskDisplay(project.stc_risk_score);
-  const mcstcRisk = getRiskDisplay(project.mcstc_risk_score);
+  const stcDisplay = getScoreDisplay(project.stc_risk_score);
+  const mcstcDisplay = getScoreDisplay(project.mcstc_risk_score);
 
   const hasBasicAnalysis = !!project.last_risk_check_at;
-  const tnmComplete = !!project.repository_path;
+  const tnmComplete = !!project.repository_path && (project.members_count ?? 0) > 0;
 
   const handleRowClick = () => {
     router.push(`/dashboard?projectId=${project.id}`);
@@ -66,15 +66,15 @@ export function ProjectTableRow({ project }: ProjectTableRowProps) {
         </div>
       </TableCell>
 
-      {/* STC Risk Score */}
+      {/* STC Score */}
       <TableCell className="hidden lg:table-cell">
         {hasBasicAnalysis ? (
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-muted-foreground" />
-            <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${stcRisk.className}`}>
-              {project.stc_risk_score !== undefined && project.stc_risk_score !== null
+            <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${stcDisplay.className}`}>
+              {project.stc_risk_score != null
                 ? `${(project.stc_risk_score * 100).toFixed(1)}%`
-                : stcRisk.label}
+                : stcDisplay.label}
             </span>
           </div>
         ) : tnmComplete ? (
@@ -84,15 +84,15 @@ export function ProjectTableRow({ project }: ProjectTableRowProps) {
         )}
       </TableCell>
 
-      {/* MCSTC Risk Score */}
+      {/* MC-STC Score */}
       <TableCell className="hidden lg:table-cell">
         {hasBasicAnalysis ? (
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-            <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${mcstcRisk.className}`}>
-              {project.mcstc_risk_score !== undefined && project.mcstc_risk_score !== null
+            <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${mcstcDisplay.className}`}>
+              {project.mcstc_risk_score != null
                 ? `${(project.mcstc_risk_score * 100).toFixed(1)}%`
-                : mcstcRisk.label}
+                : mcstcDisplay.label}
             </span>
           </div>
         ) : tnmComplete ? (

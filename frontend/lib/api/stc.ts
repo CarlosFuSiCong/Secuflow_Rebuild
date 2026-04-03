@@ -72,7 +72,7 @@ export async function triggerMCSTCAnalysis(
   projectId: string,
   branch: string,
   tnmOutputDir: string
-): Promise<{ analysis_id: string }> {
+): Promise<{ analysis_id: string; is_completed: boolean; error_message?: string; mcstc_value?: number }> {
   // Step 1: create the MC-STC analysis record
   const createResp = await apiClient.post(`/mcstc/analyses/`, {
     project: projectId,
@@ -86,5 +86,14 @@ export async function triggerMCSTCAnalysis(
     branch,
     tnm_output_dir: tnmOutputDir,
   });
-  return { analysis_id: analysisId, ...startResp.data.data };
+  const result = startResp.data.data;
+
+  // Treat backend-reported failures as errors
+  if (result?.is_completed === false && result?.error_message) {
+    const err: any = new Error(result.error_message);
+    err.mcstcResult = result;
+    throw err;
+  }
+
+  return { analysis_id: analysisId, ...result };
 }

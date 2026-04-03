@@ -186,13 +186,15 @@ export function ProjectHeader({
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">Computing…</span>
                     </div>
-                  ) : (
-                    <div className="text-lg font-semibold tracking-tight">
-                      {project.stc_risk_score !== null && project.stc_risk_score !== undefined
-                        ? `${(project.stc_risk_score * 100).toFixed(1)}%`
-                        : "N/A"}
-                    </div>
-                  )}
+                  ) : (() => {
+                    const score = project.stc_risk_score != null ? project.stc_risk_score * 100 : null;
+                    const color = score == null ? "" : score > 70 ? "text-green-600" : score > 30 ? "text-orange-600" : "text-red-600";
+                    return (
+                      <div className={`text-lg font-semibold tracking-tight ${color}`}>
+                        {score != null ? `${score.toFixed(1)}%` : "N/A"}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -208,13 +210,15 @@ export function ProjectHeader({
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">Computing…</span>
                     </div>
-                  ) : (
-                    <div className="text-lg font-semibold tracking-tight">
-                      {project.mcstc_risk_score !== null && project.mcstc_risk_score !== undefined
-                        ? `${(project.mcstc_risk_score * 100).toFixed(1)}%`
-                        : "N/A"}
-                    </div>
-                  )}
+                  ) : (() => {
+                    const score = project.mcstc_risk_score != null ? project.mcstc_risk_score * 100 : null;
+                    const color = score == null ? "" : score > 70 ? "text-green-600" : score > 30 ? "text-orange-600" : "text-red-600";
+                    return (
+                      <div className={`text-lg font-semibold tracking-tight ${color}`}>
+                        {score != null ? `${score.toFixed(1)}%` : "N/A"}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

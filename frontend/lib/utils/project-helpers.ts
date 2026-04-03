@@ -5,45 +5,31 @@
 import type { Project } from "../types/project";
 
 /**
- * Calculate risk level based on risk score
- * Risk score ranges from 0 to 1, where higher values indicate higher risk
- * @param riskScore - The risk score (0-1)
- * @returns Risk level: "High", "Medium", or "Low"
+ * Get score label based on score value (higher score = better coordination).
+ * @param score - The STC/MC-STC score (0-1, higher = better)
+ * @returns Label: "Good", "Fair", or "Poor"
  */
-export function getRiskLevel(riskScore: number | undefined | null): "High" | "Medium" | "Low" {
-  if (riskScore === undefined || riskScore === null) {
-    return "High"; // Default to high risk if no score available
-  }
-  
-  if (riskScore >= 0.7) return "High";
-  if (riskScore >= 0.4) return "Medium";
-  return "Low";
+export function getRiskLevel(score: number | undefined | null): "Good" | "Fair" | "Poor" {
+  if (score === undefined || score === null) return "Poor";
+  if (score > 0.7) return "Good";
+  if (score > 0.3) return "Fair";
+  return "Poor";
 }
 
 /**
- * Get STC score from project data
- * STC value = 1 - risk_score (since risk_score = 1 - stc_value)
- * @param project - Project data from API
- * @returns STC score (0-1) or null if not available
+ * Get STC score from project data.
+ * stc_risk_score IS the coordination score (0–1, higher = better).
  */
 export function getStcScore(project: Project): number | null {
-  if (project.stc_risk_score !== undefined && project.stc_risk_score !== null) {
-    return 1 - project.stc_risk_score;
-  }
-  return null;
+  return project.stc_risk_score ?? null;
 }
 
 /**
- * Get MC-STC score from project data
- * MC-STC value = 1 - mcstc_risk_score
- * @param project - Project data from API
- * @returns MC-STC score (0-1) or null if not available
+ * Get MC-STC score from project data.
+ * mcstc_risk_score IS the coordination score (0–1, higher = better).
  */
 export function getMcStcScore(project: Project): number | null {
-  if (project.mcstc_risk_score !== undefined && project.mcstc_risk_score !== null) {
-    return 1 - project.mcstc_risk_score;
-  }
-  return null;
+  return project.mcstc_risk_score ?? null;
 }
 
 /**
@@ -65,7 +51,7 @@ export function formatProjectDate(dateString: string): string {
  */
 export interface EnhancedProject extends Project {
   branchCount?: number;
-  riskLevel: "High" | "Medium" | "Low";
+  riskLevel: "Good" | "Fair" | "Poor";
   stcScore: number | null;
   mcStcScore: number | null;
 }

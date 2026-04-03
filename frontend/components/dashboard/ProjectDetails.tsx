@@ -28,19 +28,20 @@ import { toast } from "sonner";
 type AnalysisStep = "tnm" | "stc" | "classification" | "mcstc" | "complete";
 
 /**
- * Convert repository_path to TNM output directory path
- * repository_path: /app/tnm_repositories/project_123
- * tnm_output_dir: /app/tnm_output/project_123
+ * Convert repository_path + branch to TNM output directory path.
+ * Both project/services.py and tnm_integration/views.py write output to
+ * the branch-suffixed directory: /app/tnm_output/project_<uuid>_<branch>.
+ * The STC backend also auto-detects the no-suffix fallback, so old data is safe.
  */
-function getTnmOutputDir(repositoryPath: string | undefined): string | null {
+function getTnmOutputDir(repositoryPath: string | undefined, branch?: string): string | null {
   if (!repositoryPath) return null;
-  
-  // Extract the full project directory name (e.g. "project_<uuid>") from the
-  // repository path – the project id may be a UUID, not a plain integer.
   const match = repositoryPath.match(/project_([^/]+?)\/?$/);
   if (!match) return null;
-  
   const projectId = match[1];
+  if (branch) {
+    const branchFs = branch.replace(/\//g, "_");
+    return `/app/tnm_output/project_${projectId}_${branchFs}`;
+  }
   return `/app/tnm_output/project_${projectId}`;
 }
 
@@ -86,7 +87,8 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
         setProject(projectData);
         
         // Determine current step based on project data
-        if (!projectData.repository_path) {
+        // TNM is only complete when contributors have been imported (members_count > 0)
+        if (!projectData.repository_path || (projectData.members_count || 0) === 0) {
           setCurrentStep("tnm");
         } else if (!projectData.last_risk_check_at) {
           setCurrentStep("stc");
@@ -109,7 +111,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
     const startPolling = async () => {
       try {
         const projectData = await getProject(projectId);
-        const tnmComplete = !!projectData.repository_path;
+        const tnmComplete = !!projectData.repository_path && (projectData.members_count || 0) > 0;
         
         if (!tnmComplete) {
           pollIntervalRef.current = setInterval(async () => {
@@ -117,7 +119,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
               const updatedProject = await getProject(projectId);
               setProject(updatedProject);
               
-              if (updatedProject.repository_path && pollIntervalRef.current) {
+              if (updatedProject.repository_path && (updatedProject.members_count || 0) > 0 && pollIntervalRef.current) {
                 clearInterval(pollIntervalRef.current);
                 pollIntervalRef.current = null;
               }
@@ -197,8 +199,9 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
       try {
         await analyzeTNMContributors(projectId);
       } catch (contribErr: any) {
-        console.warn("Contributor import warning:", contribErr);
-        // Non-fatal — continue even if import partially fails
+        const contribMsg = contribErr?.response?.data?.errorMessage || contribErr?.message || "Contributor import failed";
+        console.warn("Contributor import warning:", contribMsg);
+        toast.warning(`TNM complete, but contributor import had an issue: ${contribMsg}. You can re-import from the contributor classification step.`);
       }
 
       toast.success("TNM analysis complete!");
@@ -273,7 +276,11 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
           try {
             await runTNMAnalysis(projectId);
             setAnalysisMessage("TNM complete. Importing contributors...");
-            try { await analyzeTNMContributors(projectId); } catch { /* non-fatal */ }
+            try {
+              await analyzeTNMContributors(projectId);
+            } catch (ce: any) {
+              toast.warning("Contributor import had an issue. You can re-import from the classification step.");
+            }
             const refreshed = await getProject(projectId);
             setProject(refreshed);
           } catch (tnmErr: any) {
@@ -314,7 +321,11 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
             try {
               await runTNMAnalysis(projectId);
               setAnalysisMessage("TNM complete. Importing contributors...");
-              try { await analyzeTNMContributors(projectId); } catch { /* non-fatal */ }
+              try {
+                await analyzeTNMContributors(projectId);
+              } catch (ce: any) {
+                toast.warning("Contributor import had an issue. You can re-import from the classification step.");
+              }
               const refreshed = await getProject(projectId);
               setProject(refreshed);
             } catch (tnmErr: any) {
@@ -369,7 +380,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
   // Handle STC analysis
   const handleRunSTCAnalysis = async () => {
     if (!projectId) return;
-    const tnmOutputDir = getTnmOutputDir(project?.repository_path);
+    const tnmOutputDir = getTnmOutputDir(project?.repository_path, selectedBranch || project?.default_branch);
     
     if (!tnmOutputDir) {
       setAnalysisMessage("TNM output directory not available. Please complete TNM analysis first.");
@@ -405,7 +416,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
   // Handle MC-STC analysis
   const handleRunMCSTCAnalysis = async () => {
     if (!projectId) return;
-    const tnmOutputDir = getTnmOutputDir(project?.repository_path);
+    const tnmOutputDir = getTnmOutputDir(project?.repository_path, selectedBranch || project?.default_branch);
     
     if (!tnmOutputDir) {
       setAnalysisMessage("TNM output directory not available. Please complete TNM analysis first.");
@@ -416,14 +427,10 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
     setAnalysisMessage(null);
     try {
       await triggerMCSTCAnalysis(projectId, selectedBranch, tnmOutputDir);
-      setAnalysisMessage("MC-STC analysis started successfully!");
-      toast.info("MC-STC analysis started...");
-      setTimeout(async () => {
-        const updatedProject = await getProject(projectId);
-        setProject(updatedProject);
-        setCurrentStep("complete");
-        toast.success("MC-STC analysis complete!");
-      }, 3000);
+      toast.success("MC-STC analysis complete!");
+      const updatedProject = await getProject(projectId);
+      setProject(updatedProject);
+      setCurrentStep("complete");
     } catch (err: any) {
       console.error("Failed to trigger MC-STC analysis:", err);
       const msg =
@@ -728,7 +735,7 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
                     </p>
                   </div>
 
-                  <ContributorRoleManagement projectId={projectId} />
+                  <ContributorRoleManagement projectId={projectId} hasRepository={!!project?.repository_path} />
 
                   <div className="flex justify-end gap-4 pt-4 border-t">
                     <Button
@@ -753,19 +760,38 @@ export function ProjectDetails({ projectId }: ProjectDetailsProps) {
                   </div>
 
                   {analysisMessage && (
-                    <Alert>
-                      <AlertDescription>{analysisMessage}</AlertDescription>
+                    <Alert variant={analysisMessage.toLowerCase().includes("insufficient") || analysisMessage.toLowerCase().includes("role") ? "destructive" : "default"}>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        <span>{analysisMessage}</span>
+                        {(analysisMessage.toLowerCase().includes("insufficient") || analysisMessage.toLowerCase().includes("role")) && (
+                          <p className="mt-1 text-xs opacity-80">
+                            MC-STC requires contributors assigned to at least two different roles (e.g. Developer + Security, or Developer + Ops). Go back and assign roles first.
+                          </p>
+                        )}
+                      </AlertDescription>
                     </Alert>
                   )}
 
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      Make sure contributor roles are properly assigned before running MC-STC analysis.
-                    </AlertDescription>
-                  </Alert>
+                  {!analysisMessage && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Make sure contributor roles are properly assigned before running MC-STC analysis.
+                        MC-STC requires contributors in at least two different role categories.
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
                   <div className="flex gap-4">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={() => { setCurrentStep("classification"); setAnalysisMessage(null); }}
+                    >
+                      ← Back to Classification
+                    </Button>
+
                     <Button
                       onClick={handleRunMCSTCAnalysis}
                       disabled={runningMCSTCAnalysis}

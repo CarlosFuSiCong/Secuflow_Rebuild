@@ -87,12 +87,12 @@ export function ProjectList({ selectedProjectId, onProjectSelect }: ProjectListP
 
   const getRiskBadgeVariant = (riskLevel: string) => {
     switch (riskLevel) {
-      case "High":
-        return "text-red-600 border border-red-300 bg-transparent dark:text-red-400 dark:border-red-700";
-      case "Medium":
-        return "text-orange-500 border border-orange-300 bg-transparent dark:text-orange-400 dark:border-orange-700";
-      case "Low":
+      case "Good":
         return "text-green-600 border border-green-300 bg-transparent dark:text-green-400 dark:border-green-700";
+      case "Fair":
+        return "text-orange-500 border border-orange-300 bg-transparent dark:text-orange-400 dark:border-orange-700";
+      case "Poor":
+        return "text-red-600 border border-red-300 bg-transparent dark:text-red-400 dark:border-red-700";
       default:
         return "text-muted-foreground border border-border bg-transparent";
     }

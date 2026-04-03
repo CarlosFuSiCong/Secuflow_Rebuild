@@ -12,11 +12,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Save, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Search, Save, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, Loader2, Download } from "lucide-react";
 import {
   getProjectContributorsClassification,
   getFunctionalRoleChoices,
   updateContributorClassifications,
+  analyzeTNMContributors,
   type ProjectContributor,
   type FunctionalRoleChoice,
   type ContributorUpdate,
@@ -26,9 +27,10 @@ import { toast } from "sonner";
 
 interface ContributorRoleManagementProps {
   projectId: string;
+  hasRepository?: boolean;
 }
 
-export function ContributorRoleManagement({ projectId }: ContributorRoleManagementProps) {
+export function ContributorRoleManagement({ projectId, hasRepository }: ContributorRoleManagementProps) {
   const [contributors, setContributors] = useState<ProjectContributor[]>([]);
   const [roleChoices, setRoleChoices] = useState<FunctionalRoleChoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,7 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [changes, setChanges] = useState<Map<string, ContributorUpdate>>(new Map());
   const [error, setError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,6 +95,27 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
       setError(axiosErr?.response?.data?.message || "Failed to load contributors");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImportContributors = async () => {
+    setImporting(true);
+    setError(null);
+    try {
+      toast.info("Importing contributors from TNM output...");
+      await analyzeTNMContributors(projectId);
+      toast.success("Contributors imported successfully.");
+      await loadContributors();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.errorMessage ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to import contributors";
+      toast.error(msg);
+      setError(msg);
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -242,7 +266,7 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
             <SelectItem value="100">100 / page</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" size="icon" onClick={loadContributors}>
+        <Button variant="ghost" size="icon" onClick={loadContributors}>
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
@@ -270,10 +294,29 @@ export function ContributorRoleManagement({ projectId }: ContributorRoleManageme
             <tbody>
               {contributors.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-muted-foreground">
-                    {totalCount === 0 
-                      ? "No contributors found. TNM analysis may not be complete yet."
-                      : "No contributors match the current filters."}
+                  <td colSpan={4} className="p-8 text-center">
+                    {totalCount === 0 ? (
+                      <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                        <span className="text-sm">No contributors found. TNM analysis may not be complete yet.</span>
+                        {hasRepository && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleImportContributors}
+                            disabled={importing}
+                          >
+                            {importing ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+                            ) : (
+                              <Download className="h-3.5 w-3.5 mr-2" />
+                            )}
+                            Import from TNM
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">No contributors match the current filters.</span>
+                    )}
                   </td>
                 </tr>
               ) : (
