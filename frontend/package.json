@@ -2,6 +2,7 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.18.0",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
@@ -26,8 +27,8 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@tanstack/react-table": "^8.21.3",
     "apexcharts": "^5.3.5",
-    "axios": "^1.11.0",
-    "next": "16.1.6",
+    "axios": "^1.16.1",
+    "next": "16.2.6",
     "react": "19.1.0",
     "react-apexcharts": "^1.7.0",
     "react-dom": "19.1.0",
@@ -45,10 +46,15 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "16.2.6",
     "lucide-react": "^0.542.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": ">=8.5.10"
+    }
   }
 }
